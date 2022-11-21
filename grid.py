@@ -250,13 +250,9 @@ if options.action == "new" or options.action == "optimize" or options.action == 
     
     import traceback
     def debug(f,name):
-        def __(*args, **kwargs):
-            nargs = len(inspect.getargspec(f)[0])
-            if not len(args) == nargs:
-                raise TypeError("Expected {nargs:d} args, found: {found:d}".format(nargs = nargs, found = len(args)))
+        def __(tokens):
             try:
-                #print name, args
-                result = f(*args, **kwargs)
+                result = f(tokens)
                 return result
             except:
                 logging.exception("Exception in unpacking "+name)
@@ -404,8 +400,8 @@ if options.action == "new" or options.action == "optimize" or options.action == 
     #MultExpression = Forward()
     #MultExpression << ( PowExpression + ZeroOrMore( (Literal("*") ^ Literal("/")) + MultExpression) ).setParseAction(evaluate)
     #GenericExpression << ( MultExpression + ZeroOrMore( (Literal("+") ^ Literal("-")) + MultExpression)).setParseAction(evaluate)
-    from pyparsing import operatorPrecedence, opAssoc, oneOf, ParseResults
-    GenericExpression << operatorPrecedence(AtomicExpression, [
+    from pyparsing import infix_notation, opAssoc, oneOf, ParseResults
+    GenericExpression << infix_notation(AtomicExpression, [
         ("**",2,opAssoc.RIGHT),
         (oneOf("* /"),2,opAssoc.LEFT),
         (oneOf("+ -"),2,opAssoc.LEFT),
@@ -472,7 +468,8 @@ if options.action == "new" or options.action == "optimize" or options.action == 
                 return self.start
             
         def __str__(self):
-            return "'{file}' (line {line}, symbol {symbol})".format(file = self.file, line = self.line()+1, symbol = self.symbolInLine()+1)
+            return f"Statement(file={repr(self.file.name)}l{self.line() + 1}:{self.symbolInLine() + 1} expression={repr(self.expression)})"
+        __repr__ = __str__
             
         @staticmethod
         def convert(x):
@@ -537,7 +534,7 @@ if options.action == "new" or options.action == "optimize" or options.action == 
                     raise Exception("Internal error: unknown parsed element")
                     
             self.__statements__ = sorted(self.__statements__, key = attrgetter('start'))
-            
+
         def statements(self):
             return list(i for i in self.__statements__ if isinstance(i,Statement))
             
@@ -604,7 +601,7 @@ if options.action == "new" or options.action == "optimize" or options.action == 
                 else:
                     i[x] = 0
                 if x == len(i)-1:
-                    raise StopIteration
+                    return
         
     def copy(s,d, dry = False):
         
@@ -769,9 +766,9 @@ if options.action == "new" or options.action == "optimize" or options.action == 
     statements_fix = {}
     statements_opt = {}
     statements_dep = {}
-    
+
     for k,v in statements.items():
-        
+
         if v.is_optimizable():
             logging.info("  statement {name}: optimizable | {value}".format(name = k, value = str(v)))
             statements_opt[k] = v
