@@ -3,6 +3,7 @@ from tempfile import mkdtemp
 from pathlib import Path
 from subprocess import check_output, PIPE, CalledProcessError
 import pytest
+from pytest_steps import test_steps
 
 
 def setup_folder(files: dict):
@@ -62,20 +63,35 @@ def test_const():
     assert read_folder(root) == {**base}  # TODO: update
 
 
+@test_steps("grid new", "grid run", "grid cleanup")
 def test_list():
     """List expressions as well as cleanup"""
-    base = {"file_with_list": "{% [1, 2, 'a'] %}", "some_other_file": "abc"}
+    base = {"file_with_list": "{% [1, 2, 'a'] %}\n", "some_other_file": "abc"}
     root, output = run_grid(base, "new")
     assert output == ""
     assert read_folder(root) == {
         **base,
-        "grid0/file_with_list": "1",
-        "grid1/file_with_list": "2",
-        "grid2/file_with_list": "a",
+        "grid0/file_with_list": "1\n",
+        "grid1/file_with_list": "2\n",
+        "grid2/file_with_list": "a\n",
     }
+    yield
+
+    root, output = run_grid(root, "run", "cat", "file_with_list")
+    assert output == "\n".join([
+        f"{str(root / 'grid0')}",
+        "1",
+        f"{str(root / 'grid1')}",
+        "2",
+        f"{str(root / 'grid2')}",
+        "a\n",
+    ])
+    yield
+
     root, output = run_grid(root, "cleanup")
     assert output == ""
     assert read_folder(root, exclude=(".grid.log",)) == base
+    yield
 
 
 def test_range_1():
