@@ -1,20 +1,19 @@
 #!/usr/bin/env python3
+import logging
+from warnings import warn
 
 filename_data = ".grid"
 filename_log = ".grid.log"
 filename_opt_routine = ".grid.optimize"
 
-import logging
-from warnings import warn
-
 logging.basicConfig(filename = filename_log, filemode = "w", level=logging.INFO)
 
-import argparse, uuid, logging, json, itertools, inspect
+import argparse, uuid, logging, json
 import re
 from pyparsing import *
 from operator import attrgetter
 
-import os, glob, shutil, stat, subprocess, sys, math
+import os, glob, shutil, subprocess, sys, math
 
 parser = argparse.ArgumentParser(description = "Creates an array [grid] of similar jobs and executes [submits] them.")
 parser.add_argument("-f", "--files", nargs = "+", help = "files to be processed and replicated in each copy of the job", metavar = "FILENAME")
