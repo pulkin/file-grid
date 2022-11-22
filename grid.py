@@ -134,11 +134,8 @@ if options.action == "new" or options.action == "optimize" or options.action == 
             return (1 - i) * self.start + i * self.end
 
         def __str__(self):
-            return "Optimizable range {start}-{end}, finite difference step: {tol:e}".format(
-                start=self.start,
-                end=self.end,
-                tol=self.tolerance,
-            )
+            return "Optimizable range {start}-{end}, finite difference step: {tol:e}".format(start=self.start,
+                end=self.end, tol=self.tolerance, )
 
 
     class Variable(object):
@@ -233,11 +230,8 @@ if options.action == "new" or options.action == "optimize" or options.action == 
             return True
 
         def __repr__(self):
-            return "{func}(args: {args}, kwargs: {kwargs})".format(
-                func=self.function,
-                args=self.args,
-                kwargs=self.kwargs,
-            )
+            return "{func}(args: {args}, kwargs: {kwargs})".format(func=self.function, args=self.args,
+                kwargs=self.kwargs, )
 
         def __str__(self):
             return "Expression {0}".format(repr(self))
@@ -266,9 +260,6 @@ if options.action == "new" or options.action == "optimize" or options.action == 
 
     # Language definitions
 
-    import traceback
-
-
     def debug(f, name):
         def __(tokens):
             try:
@@ -292,20 +283,14 @@ if options.action == "new" or options.action == "optimize" or options.action == 
     # Primitive types
 
     PythonQuotedString = (QuotedString('"', escChar="\\") | QuotedString("'", escChar="\\")).setParseAction(
-        debug(lambda t: re.sub(r'\\(.)', r'\g<1>', t[0]), "PythonQuotedString")
-    )
+        debug(lambda t: re.sub(r'\\(.)', r'\g<1>', t[0]), "PythonQuotedString"))
     Numeric = Word(nums)
     Integer = Combine(Optional(Literal('+') | Literal('-')) + Numeric).setParseAction(
-        debug(lambda t: int(t[0]), "Integer")
-    )
+        debug(lambda t: int(t[0]), "Integer"))
     Float = Combine(Optional(Literal('+') | Literal('-')) + Numeric + Optional("." + Optional(Numeric)) + Optional(
-        CaselessLiteral('E') + Integer)).setParseAction(
-        debug(lambda t: float(t[0]), "Float")
-    )
+        CaselessLiteral('E') + Integer)).setParseAction(debug(lambda t: float(t[0]), "Float"))
     IorF = Integer ^ Float
-    Var = VariableName.copy().setParseAction(
-        debug(lambda t: Variable(t[0]), "Var")
-    )
+    Var = VariableName.copy().setParseAction(debug(lambda t: Variable(t[0]), "Var"))
     Primitive = PythonQuotedString ^ Integer ^ Float ^ Var
 
     # Args and kwargs
@@ -315,16 +300,13 @@ if options.action == "new" or options.action == "optimize" or options.action == 
 
     Args = Group(Arg + ZeroOrMore(Suppress(",") + Arg))
     KwArgs = Group(NamedArg + ZeroOrMore(Suppress(",") + NamedArg)).setParseAction(
-        debug(lambda t: dict((i.key, i.value) for i in t[0]), "KwArgs")
-    )
+        debug(lambda t: dict((i.key, i.value) for i in t[0]), "KwArgs"))
     MixedArgs = Args("args") + Suppress(",") + KwArgs("kwargs")
     ArbitraryArgs = (MixedArgs | KwArgs("kwargs") | Args("args"))
 
     # Arrays
 
-    PythonList = (Suppress("[") + Args + Suppress("]")).setParseAction(
-        debug(lambda t: [list(t[0]), ], "PythonList")
-    )
+    PythonList = (Suppress("[") + Args + Suppress("]")).setParseAction(debug(lambda t: [list(t[0]), ], "PythonList"))
 
 
     # Function call
@@ -338,49 +320,31 @@ if options.action == "new" or options.action == "optimize" or options.action == 
                 import numpy
             except ImportError:
                 print("Could not import numpy: either install numpy or avoid using '{routine}' in grid files".format(
-                    routine=f,
-                ))
+                    routine=f, ))
                 logging.exception("Failed to import numpy")
                 sys.exit(1)
 
             # Pick function
             try:
-                return {
-                    "numpy": numpy.array,
-                }[f]
+                return {"numpy": numpy.array, }[f]
             except KeyError:
-                print("Could not find numpy function {routine}".format(
-                    routine=f,
-                ))
-                logging.exception("Failed to execute {routine}".format(
-                    routine=f,
-                ))
+                print("Could not find numpy function {routine}".format(routine=f, ))
+                logging.exception("Failed to execute {routine}".format(routine=f, ))
                 sys.exit(1)
 
         # Simple functions
         else:
             try:
-                return {
-                    "range": listRange,
-                    "linspace": linspace,
-                    "optimize": OptimizableParameter,
-                }[f]
+                return {"range": listRange, "linspace": linspace, "optimize": OptimizableParameter, }[f]
             except KeyError:
-                print("Could not find function {routine}".format(
-                    routine=f,
-                ))
-                logging.exception("Failed to execute {routine}".format(
-                    routine=f,
-                ))
+                print("Could not find function {routine}".format(routine=f, ))
+                logging.exception("Failed to execute {routine}".format(routine=f, ))
                 sys.exit(1)
 
 
     Callable = Group(FieldName("callable") + Suppress("(") + Optional(ArbitraryArgs) + Suppress(")")).setParseAction(
-        debug(lambda t: [translateFunction(t[0]["callable"])(
-            *(t[0]["args"] if "args" in t[0] else []),
-            **(t[0]["kwargs"] if "kwargs" in t[0] else {})
-        )], "Callable")
-    )
+        debug(lambda t: [translateFunction(t[0]["callable"])(*(t[0]["args"] if "args" in t[0] else []),
+            **(t[0]["kwargs"] if "kwargs" in t[0] else {}))], "Callable"))
 
     # Atomic types
 
@@ -396,9 +360,7 @@ if options.action == "new" or options.action == "optimize" or options.action == 
             return t
 
         if len(t) % 2 == 0:
-            raise Exception("Cannot evaluate {expr}".format(
-                expr=t,
-            ))
+            raise Exception("Cannot evaluate {expr}".format(expr=t, ))
 
         result = evaluate(t[0])
 
@@ -429,11 +391,8 @@ if options.action == "new" or options.action == "optimize" or options.action == 
     # GenericExpression << ( MultExpression + ZeroOrMore( (Literal("+") ^ Literal("-")) + MultExpression)).setParseAction(evaluate)
     from pyparsing import infix_notation, opAssoc, oneOf, ParseResults
 
-    GenericExpression << infix_notation(AtomicExpression, [
-        ("**", 2, opAssoc.RIGHT),
-        (oneOf("* /"), 2, opAssoc.LEFT),
-        (oneOf("+ -"), 2, opAssoc.LEFT),
-    ]).setParseAction(debug(lambda x: [evaluate(x)], "GenericExpression"))
+    GenericExpression << infix_notation(AtomicExpression, [("**", 2, opAssoc.RIGHT), (oneOf("* /"), 2, opAssoc.LEFT),
+        (oneOf("+ -"), 2, opAssoc.LEFT), ]).setParseAction(debug(lambda x: [evaluate(x)], "GenericExpression"))
 
     # Grid group
 
@@ -521,20 +480,15 @@ if options.action == "new" or options.action == "optimize" or options.action == 
             except ValueError:
                 pass
 
-            raise Exception("Internal error: unsupported type {t}".format(
-                t=type(x),
-            ))
+            raise Exception("Internal error: unsupported type {t}".format(t=type(x), ))
 
         @staticmethod
         def s2d(s):
             result = {}
             for i in s:
                 if i.id in result:
-                    raise InconsistencyException("Statements at {g1} and {g2} have the same id '{id}'".format(
-                        g1=result[i.id],
-                        g2=i,
-                        id=i.id,
-                    ))
+                    raise InconsistencyException(
+                        "Statements at {g1} and {g2} have the same id '{id}'".format(g1=result[i.id], g2=i, id=i.id, ))
                 result[i.id] = i
             return result
 
@@ -588,15 +542,11 @@ if options.action == "new" or options.action == "optimize" or options.action == 
                         chunk = stack[i.id]
                     except KeyError:
                         chunk = self.__source__[i.start:i.end]
-                        warn("Expression named '{name}' at {st} could not be evaluated and will be ignored".format(
-                            st=i,
-                            name=i.id,
-                        ))
+                        warn("Expression named '{name}' at {st} could not be evaluated and will be ignored".format(st=i,
+                            name=i.id, ))
                         logging.warn(
-                            "Expression named '{name}' at {st} could not be evaluated and will be ignored".format(
-                                st=i,
-                                name=i.id,
-                            ))
+                            "Expression named '{name}' at {st} could not be evaluated and will be ignored".format(st=i,
+                                name=i.id, ))
 
                 if isinstance(chunk, str):
                     f.write(chunk)
@@ -830,25 +780,17 @@ if options.action == "new" or options.action == "optimize" or options.action == 
             statements_dep[k] = v
 
         else:
-            raise Exception("Internal error: unknown expression {ex}".format(
-                ex=v.expression,
-            ))
+            raise Exception("Internal error: unknown expression {ex}".format(ex=v.expression, ))
     logging.info(
         "Total: {fixed} fixed statement(s) ({comb} combination(s)), {opt} optimize statement(s) and {dep} dependent statement(s)".format(
-            fixed=len(statements_fix),
-            opt=len(statements_opt),
-            dep=len(statements_dep),
-            comb=total,
-        ))
+            fixed=len(statements_fix), opt=len(statements_opt), dep=len(statements_dep), comb=total, ))
 
     # Read previous run
     if options.c or options.action == "distribute":
         grid_state = state()
         logging.info("Continue with previous {n} instances".format(n=len(grid_state["grid"])))
     else:
-        grid_state = {
-            "grid": {}
-        }
+        grid_state = {"grid": {}}
 
     index = len(grid_state["grid"])
 
@@ -936,18 +878,12 @@ if options.action == "new" or options.action == "optimize" or options.action == 
                 result = float(m.group())
             except ValueError:
                 print("Failed to find a float in the output of '{script}' (cwd = {cwd}) script:\n{output}".format(
-                    script=" ".join(options.command),
-                    output=output,
-                    cwd=scratch
-                ))
+                    script=" ".join(options.command), output=output, cwd=scratch))
                 logging.exception("Failed to match float in the output:\n{output}".format(output=output))
                 sys.exit(1)
             except subprocess.CalledProcessError as e:
                 print("Process error, see {log} for details".format(log=filename_log))
-                logging.exception("Process error: {p}\nOutput: {o}".format(
-                    p=" ".join(options.command),
-                    o=e.output,
-                ))
+                logging.exception("Process error: {p}\nOutput: {o}".format(p=" ".join(options.command), o=e.output, ))
                 sys.exit(1)
 
             grid_state["grid"][scratch] = {"stack": stack, "opt_value": result}
@@ -964,9 +900,7 @@ if options.action == "new" or options.action == "optimize" or options.action == 
         # Set finite difference epsilon
 
         eps = list(statements_opt[n].expression.tolerance for n in optimize_names)
-        logging.info("Setting finite difference epsilon to {eps}".format(
-            eps=eps,
-        ))
+        logging.info("Setting finite difference epsilon to {eps}".format(eps=eps, ))
 
         if not "optimize" in grid_state:
             grid_state["optimize"] = {}
@@ -995,42 +929,26 @@ if options.action == "new" or options.action == "optimize" or options.action == 
                     if v0 == v1:
                         print(
                             "Problem with a finite difference gradient: the values from '{g0}' and '{g1}' are equal to {val}".format(
-                                g0=f0,
-                                g1=f1,
-                                val=v0,
-                            ))
+                                g0=f0, g1=f1, val=v0, ))
                         logging.error(
                             "Finite difference gradient vanishes. Value obtained in '{g0}' and '{g1}' is {val}".format(
-                                g0=f0,
-                                g1=f1,
-                                val=v0,
-                            ))
+                                g0=f0, g1=f1, val=v0, ))
                         sys.exit(1)
 
                 grid_state["optimize"]["target_error"] = (max(values) - min(values)) * 10
 
         # Run minimize
         logging.info("Optimizing to {eps}".format(eps=grid_state["optimize"]["target_error"]))
-        result = minimize(function_to_optimize, (0.5,) * len(statements_opt),
-                          bounds=((0, 1),) * len(statements_opt),
-                          options={
-                              "eps": eps,
-                          },
-                          tol=grid_state["optimize"]["target_error"],
-                          method='L-BFGS-B',
-                          )
+        result = minimize(function_to_optimize, (0.5,) * len(statements_opt), bounds=((0, 1),) * len(statements_opt),
+                          options={"eps": eps, }, tol=grid_state["optimize"]["target_error"], method='L-BFGS-B', )
 
         # Very last call
         logging.info("Performing final computation")
         actual, folder = function_to_optimize(result.x, return_folder=True)
 
-        grid_state["optimize"].update({
-            "folder": folder,
-            "message": str(result.message),
-            "success": bool(result.success),
-            "minimized": float(result.fun),
-            "minimized_actual": float(actual),
-        })
+        grid_state["optimize"].update(
+            {"folder": folder, "message": str(result.message), "success": bool(result.success),
+                "minimized": float(result.fun), "minimized_actual": float(actual), })
         save_state(grid_state)
         print(actual)
 
@@ -1112,8 +1030,7 @@ elif options.action == "run":
                 "Failed to execute {command} (working directory {directory})".format(command=command, directory=cwd))
             sys.exit(1)
 
-        logging.info(
-            "  executed {command} in {directory}".format(command=command, directory=cwd))
+        logging.info("  executed {command} in {directory}".format(command=command, directory=cwd))
 
 # ----------------------------------------------------------------------
 #   Cleanup grid
@@ -1195,10 +1112,8 @@ elif options.action == 'which':
 
             for k, v in grid_state["grid"][i].items():
                 print("{indent}{key}: {value}".format(
-                    key=k.rjust(max_key_len) if len(k) <= max_key_len else k[:max_key_len - 3] + '...',
-                    value=v,
-                    indent='  ' if len(options.command) > 1 else ''
-                ))
+                    key=k.rjust(max_key_len) if len(k) <= max_key_len else k[:max_key_len - 3] + '...', value=v,
+                    indent='  ' if len(options.command) > 1 else ''))
         else:
             print('  Not found')
 
@@ -1256,7 +1171,7 @@ elif options.action == "progress":
         total = 0
         for parameter in data_x.keys():
             total += (p1[2][parameter] - p2[2][parameter]) ** 2 / (
-                        data_x_range[parameter][1] - data_x_range[parameter][0]) ** 2
+                    data_x_range[parameter][1] - data_x_range[parameter][0]) ** 2
         data_x_step.append(total ** 0.5)
 
     data_y = [i[1] for i in grid]
@@ -1280,10 +1195,7 @@ elif options.action == "progress":
 
     data_x_ranges = {}
     for k in grid[0][2].keys():
-        data_x_ranges[k] = (
-            min([i[2][k] for i in grid]),
-            max([i[2][k] for i in grid]),
-        )
+        data_x_ranges[k] = (min([i[2][k] for i in grid]), max([i[2][k] for i in grid]),)
 
     range_fraction = 0.02
     ratio = 16. / 9
@@ -1293,23 +1205,14 @@ elif options.action == "progress":
     n_keys = len(grid[0][2].keys())
     w = int(math.ceil((n_keys * ratio) ** .5))
     h = int(math.ceil(n_keys / w))
-    logging.info("Will arrange {n} plots into {w} by {h} grid".format(
-        n=n_keys,
-        w=w,
-        h=h,
-    ))
+    logging.info("Will arrange {n} plots into {w} by {h} grid".format(n=n_keys, w=w, h=h, ))
 
     # Plot
 
     pyplot.figure(facecolor='white')
 
-    pyplot.gcf().legend(
-        [Patch(alpha=0.7, color=data_colors[i]) for i in range(len(data_location))],
-        data_location,
-        fancybox=True,
-        bbox_to_anchor=(0.9, 0.5),
-        loc=10,
-    )
+    pyplot.gcf().legend([Patch(alpha=0.7, color=data_colors[i]) for i in range(len(data_location))], data_location,
+        fancybox=True, bbox_to_anchor=(0.9, 0.5), loc=10, )
     pyplot.subplots_adjust(right=0.8, hspace=0.3)
 
     for parameter_i, parameter in enumerate(grid[0][2].keys()):
@@ -1341,23 +1244,16 @@ elif options.action == "progress":
 
         ax.scatter(data_x_scatter, data_y_numbers, c=data_c_scatter, s=180, alpha=0.7)
 
-        for x1, x2, y1, y2, step in zip(
-                data_x[parameter][:-1],
-                data_x[parameter][1:],
-                data_y[:-1],
-                data_y[1:],
+        for x1, x2, y1, y2, step in zip(data_x[parameter][:-1], data_x[parameter][1:], data_y[:-1], data_y[1:],
                 data_x_step):
 
             if not y1 is None and not y2 is None and not x1 == x2 and step < range_fraction:
                 k = (y1 - y2) / (x1 - x2)
                 b = y1 - k * x1
                 x_delta = range_fraction * (data_x_range[parameter][1] - data_x_range[parameter][0])
-                ax.plot(
-                    [0.5 * (x1 + x2 - x_delta), 0.5 * (x1 + x2 + x_delta)],
-                    [k * 0.5 * (x1 + x2 - x_delta) + b, k * 0.5 * (x1 + x2 + x_delta) + b],
-                    antialiased=True,
-                    color='black'
-                )
+                ax.plot([0.5 * (x1 + x2 - x_delta), 0.5 * (x1 + x2 + x_delta)],
+                    [k * 0.5 * (x1 + x2 - x_delta) + b, k * 0.5 * (x1 + x2 + x_delta) + b], antialiased=True,
+                    color='black')
 
         pyplot.ylim((data_y_range[0] * 1.1 - data_y_range[1] * 0.1, data_y_range[1] * 1.1 - data_y_range[0] * 0.1))
         pyplot.title("Target vs parameter '{p}'".format(p=parameter))
