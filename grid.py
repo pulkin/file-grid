@@ -21,12 +21,10 @@ filename_opt_routine = ".grid.optimize"
 
 logging.basicConfig(filename=filename_log, filemode="w", level=logging.INFO)
 
-parser = argparse.ArgumentParser(description="Creates an array [grid] of similar jobs and executes [submits] them.")
-parser.add_argument("-f", "--files", nargs="+", help="files to be processed and replicated in each copy of the job",
-                    metavar="FILENAME")
-parser.add_argument("-t", "--static-files", nargs="+", help="files to be replicated in each copy of the job",
-                    metavar="FILENAME")
-parser.add_argument("-p", "--prefix", help="prefix of the grid folders", metavar="STRING")
+parser = argparse.ArgumentParser(description="Creates an array [grid] of similar jobs and executes [submits] them")
+parser.add_argument("-f", "--files", nargs="+", help="files to be processed", metavar="FILENAME")
+parser.add_argument("-t", "--static-files", nargs="+", help="files to be copied", metavar="FILENAME")
+parser.add_argument("-p", "--prefix", help="prefix for grid folders", metavar="STRING")
 parser.add_argument("-g", "--target", help="target tolerance for optimization", metavar="FLOAT", type=float)
 parser.add_argument("-c", action='store_true', help="continue optimization without removing existing grid state")
 parser.add_argument("action", help="action to perform",
