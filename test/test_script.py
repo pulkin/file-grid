@@ -44,7 +44,7 @@ def read_folder(root: Path, exclude=(".grid", ".grid.log")):
 
 
 @pytest.mark.parametrize("files", [{}, {"description.txt": "something"}])
-def test_empty(files):
+def test_raise_empty(files):
     """Dummy setup with a single text file"""
     with pytest.raises(CalledProcessError) as e_info:
         run_grid(files, "new")
@@ -52,6 +52,16 @@ def test_empty(files):
     assert e.returncode == 1
     assert e.stderr == ""
     assert e.stdout == "No grid-formatted files found in this folder\n"
+
+
+def test_raise_non_existent():
+    """Dummy setup with a single text file"""
+    with pytest.raises(CalledProcessError) as e_info:
+        run_grid({}, "run", "something")
+    e = e_info.value
+    assert e.returncode == 1
+    assert e.stderr == ""
+    assert e.stdout == "Could not find configuration file .grid. Did you run 'grid new'?\n"
 
 
 @pytest.mark.skip("to be implemented")
