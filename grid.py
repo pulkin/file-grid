@@ -32,22 +32,15 @@ parser.add_argument("action", help="action to perform",
 parser.add_argument("command", nargs="*", help="command to execute or list of folders for 'which' action")
 
 options = parser.parse_args()
-logging.info("STARTED LOGGING FOR {action}".format(action=options.action))
+logging.info(' '.join(sys.argv))
 
 
 def state():
-    if not os.path.isfile(filename_data):
-        print("Could not find configuration file {name}. Did you run 'grid new'?".format(name=filename_data))
-        logging.error("Could not find configuration file {name}".format(name=filename_data))
-        sys.exit(1)
-
     try:
         with open(filename_data, "r") as f:
             return json.load(f)
-    except Exception as e:
-        print("Failed to read .grid file: wrong format")
-        logging.exception("Failed to read grid configuration data")
-        sys.exit(1)
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"Grid file does not exit: {repr(e.filename)}") from e
 
 
 def save_state(state):

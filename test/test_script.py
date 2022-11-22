@@ -60,8 +60,8 @@ def test_raise_non_existent():
         run_grid({}, "run", "something")
     e = e_info.value
     assert e.returncode == 1
-    assert e.stderr == ""
-    assert e.stdout == "Could not find configuration file .grid. Did you run 'grid new'?\n"
+    assert e.stderr.endswith("Grid file does not exit: '.grid'\n")
+    assert e.stdout == ""
 
 
 @pytest.mark.skip("to be implemented")
