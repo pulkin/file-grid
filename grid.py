@@ -3,7 +3,6 @@ import argparse
 import glob
 import json
 import logging
-import math
 import os
 import re
 import shutil
@@ -17,7 +16,6 @@ from pyparsing import *
 
 filename_data = ".grid"
 filename_log = ".grid.log"
-filename_opt_routine = ".grid.optimize"
 
 logging.basicConfig(filename=filename_log, filemode="w", level=logging.INFO)
 
@@ -27,8 +25,7 @@ parser.add_argument("-t", "--static-files", nargs="+", help="files to be copied"
 parser.add_argument("-p", "--prefix", help="prefix for grid folders", metavar="STRING")
 parser.add_argument("-g", "--target", help="target tolerance for optimization", metavar="FLOAT", type=float)
 parser.add_argument("-c", action='store_true', help="continue optimization without removing existing grid state")
-parser.add_argument("action", help="action to perform",
-                    choices=["new", "run", "cleanup", "which", "optimize", "progress", "distribute"])
+parser.add_argument("action", help="action to perform", choices=["new", "run", "cleanup", "which", "distribute"])
 parser.add_argument("command", nargs="*", help="command to execute or list of folders for 'which' action")
 
 options = parser.parse_args()
@@ -51,23 +48,17 @@ def save_grid_state(state):
 
 
 def folder_name(index):
-    return "{prefix}{index}".format(prefix=options.prefix, index=index)
+    """Folder name convention"""
+    return f"{options.prefix}{index}"
 
 
 # ----------------------------------------------------------------------
-#   New grid, optimize, distribute
+#   New grid, distribute
 # ----------------------------------------------------------------------
 
-if options.action == "new" or options.action == "optimize" or options.action == "distribute":
+if options.action in ("new", "distribute"):
 
     # Errors
-
-    if len(options.command) == 0 and options.action == "optimize":
-        parser.error("no target executable provided for 'optimize'")
-
-    if options.target and not options.action == "optimize":
-        parser.error("-g, --target options are meaningless for {action} action".format(action=options.action))
-
     if len(options.command) == 0 and options.action == "distribute":
         parser.error("nothing to distribute")
 
@@ -109,27 +100,6 @@ if options.action == "new" or options.action == "optimize" or options.action == 
             w = 1.0 * i / (steps - 1)
             result.append(start * (1 - w) + end * w)
         return result
-
-
-    class OptimizableParameter(object):
-
-        def __init__(self, start, end, tolerance=1e-4):
-            if not isinstance(start, (int, float)):
-                raise ValueError("The 'start' parameter must be a number")
-            if not isinstance(end, (int, float)):
-                raise ValueError("The 'end' parameter must be a number")
-            if not isinstance(tolerance, (int, float)):
-                raise ValueError("The 'tolerance' parameter must be a number")
-            self.start = start
-            self.end = end
-            self.tolerance = tolerance / abs(self.start - self.end)
-
-        def __getitem__(self, i):
-            return (1 - i) * self.start + i * self.end
-
-        def __str__(self):
-            return "Optimizable range {start}-{end}, finite difference step: {tol:e}".format(start=self.start,
-                end=self.end, tol=self.tolerance, )
 
 
     class Variable(object):
@@ -329,7 +299,7 @@ if options.action == "new" or options.action == "optimize" or options.action == 
         # Simple functions
         else:
             try:
-                return {"range": listRange, "linspace": linspace, "optimize": OptimizableParameter, }[f]
+                return {"range": listRange, "linspace": linspace}[f]
             except KeyError:
                 print("Could not find function {routine}".format(routine=f, ))
                 logging.exception("Failed to execute {routine}".format(routine=f, ))
@@ -395,16 +365,6 @@ if options.action == "new" or options.action == "optimize" or options.action == 
     GroupStatement = Escaped("escaped") ^ (Suppress("{%") + GroupHeader + GenericExpression("choices") + Suppress("%}"))
 
 
-    # Test
-    # for i in GroupStatement.searchString("""
-    # {% a= optimize(1,2,tolerance=3) %}
-    # {% x= a*2**2 %}
-    # {% (30*5**2+7*3)*2 %}
-    # """):
-    # print(i.choices,i.id,i.flags)
-    ##print(i[0])
-    # exit(0)
-
     # ------------------------------------------------------------------
     #   Classes
     # ------------------------------------------------------------------
@@ -435,9 +395,6 @@ if options.action == "new" or options.action == "optimize" or options.action == 
                 return True
             except TypeError:
                 return False
-
-        def is_optimizable(self):
-            return isinstance(self.expression, OptimizableParameter)
 
         def is_evaluatable(self):
             return "evaluate" in dir(self.expression)
@@ -751,16 +708,11 @@ if options.action == "new" or options.action == "optimize" or options.action == 
     # Split statements by type
     total = 1
     statements_fix = {}
-    statements_opt = {}
     statements_dep = {}
 
     for k, v in statements.items():
 
-        if v.is_optimizable():
-            logging.info("  statement {name}: optimizable | {value}".format(name=k, value=str(v)))
-            statements_opt[k] = v
-
-        elif v.is_regular():
+        if v.is_regular():
             logging.info("  statement {name}: {n} | {value}".format(name=k, n=len(v.expression), value=str(v)))
             statements_fix[k] = v
             total = total * len(v.expression)
@@ -776,8 +728,8 @@ if options.action == "new" or options.action == "optimize" or options.action == 
         else:
             raise Exception("Internal error: unknown expression {ex}".format(ex=v.expression, ))
     logging.info(
-        "Total: {fixed} fixed statement(s) ({comb} combination(s)), {opt} optimize statement(s) and {dep} dependent statement(s)".format(
-            fixed=len(statements_fix), opt=len(statements_opt), dep=len(statements_dep), comb=total, ))
+        "Total: {fixed} fixed statement(s) ({comb} combination(s)), and {dep} dependent statement(s)".format(
+            fixed=len(statements_fix), dep=len(statements_dep), comb=total, ))
 
     # Read previous run
     if options.c or options.action == "distribute":
@@ -798,165 +750,12 @@ if options.action == "new" or options.action == "optimize" or options.action == 
             sys.exit(1)
 
     # ------------------------------------------------------------------
-    #   Optimize
-    # ------------------------------------------------------------------
-
-    if options.action == "optimize":
-
-        # Try to import
-
-        try:
-            from scipy.optimize import minimize
-        except ImportError:
-            print("Could not import minimize from scipy.optimize")
-            logging.exception("Failed to import minimize from scipy.optimize")
-            sys.exit(1)
-
-        # Check if optimizable groups are present
-
-        if len(statements_fix) > 0:
-            warn(
-                "Found {n} fixed groups which will be ignored during optimize run. Use 'grid new' option if you want to unpack fixed groups.".format(
-                    n=len(statements_fix)))
-            logging.warn("{n} fixed groups found but action='optimize'".format(n=len(statements_fix)))
-
-        if len(statements_opt) == 0:
-            print("No groups to optimize found, exiting.")
-            logging.error("'grid optimize' is invoked but no groups to optimize found")
-            sys.exit(1)
-
-        # Set optimize groups' names
-        optimize_names = statements_opt.keys()
-
-        # Float parser
-        cre_float = re.compile(r"([-+]?[0-9]+\.?[0-9]*(?:[eEdD][-+]?[0-9]*)?)|(nan)")
-
-
-        def function_to_optimize(x, return_folder=False):
-
-            logging.info("Requested vector {vector}".format(vector=x))
-
-            global index
-
-            # Evaluate stack
-            stack = {}
-            for k, v in zip(optimize_names, x):
-                stack[k] = statements_opt[k].expression[v]
-            DelayedExpression.evaluateToStack(stack, statements_dep, attr="expression")
-
-            # Attempt to find in cache
-            for k, v in grid_state["grid"].items():
-                if v["stack"] == stack and "opt_value" in v:
-                    result = v["opt_value"]
-                    logging.info("Responded cached value {value} from '{folder}'".format(value=result, folder=k))
-                    if return_folder:
-                        return result, k
-                    else:
-                        return result
-
-            scratch = folder_name(index)
-            grid_state["grid"][scratch] = {"stack": stack}
-            write_grid(scratch, stack, files_static, files_grid)
-            save_grid_state(grid_state)
-
-            try:
-                logging.info("Executing '{ex}'".format(ex=' '.join(options.command)))
-                os.environ['CURRENT_GRID_FOLDER'] = scratch
-                output = subprocess.check_output(options.command, cwd=scratch, shell=True)
-                match = cre_float.finditer(str(output))
-                m = None
-                for m in match:
-                    pass
-                if m is None:
-                    raise ValueError
-                result = float(m.group())
-            except ValueError:
-                print("Failed to find a float in the output of '{script}' (cwd = {cwd}) script:\n{output}".format(
-                    script=" ".join(options.command), output=output, cwd=scratch))
-                logging.exception("Failed to match float in the output:\n{output}".format(output=output))
-                sys.exit(1)
-            except subprocess.CalledProcessError as e:
-                print("Process error, see {log} for details".format(log=filename_log))
-                logging.exception("Process error: {p}\nOutput: {o}".format(p=" ".join(options.command), o=e.output, ))
-                sys.exit(1)
-
-            grid_state["grid"][scratch] = {"stack": stack, "opt_value": result}
-            save_grid_state(grid_state)
-
-            index += 1
-            logging.info("Responded value {value}".format(value=result))
-            if return_folder:
-                return result, scratch
-            else:
-                return result
-
-
-        # Set finite difference epsilon
-
-        eps = list(statements_opt[n].expression.tolerance for n in optimize_names)
-        logging.info("Setting finite difference epsilon to {eps}".format(eps=eps, ))
-
-        if not "optimize" in grid_state:
-            grid_state["optimize"] = {}
-
-        # Calculate tolerance if needed
-        if not "target_error" in grid_state["optimize"]:
-
-            if options.target:
-                grid_state["optimize"]["target_error"] = options.target
-
-            else:
-                logging.info("Determining target tolerance")
-
-                vector = [0.5] * len(statements_opt)
-                values = []
-
-                v0, f0 = function_to_optimize(vector, return_folder=True)
-                values.append(v0)
-
-                for i in range(len(vector)):
-                    vector[i] = 0.5 + eps[i]
-                    v1, f1 = function_to_optimize(vector, return_folder=True)
-                    vector[i] = 0.5
-                    values.append(v1)
-
-                    if v0 == v1:
-                        print(
-                            "Problem with a finite difference gradient: the values from '{g0}' and '{g1}' are equal to {val}".format(
-                                g0=f0, g1=f1, val=v0, ))
-                        logging.error(
-                            "Finite difference gradient vanishes. Value obtained in '{g0}' and '{g1}' is {val}".format(
-                                g0=f0, g1=f1, val=v0, ))
-                        sys.exit(1)
-
-                grid_state["optimize"]["target_error"] = (max(values) - min(values)) * 10
-
-        # Run minimize
-        logging.info("Optimizing to {eps}".format(eps=grid_state["optimize"]["target_error"]))
-        result = minimize(function_to_optimize, (0.5,) * len(statements_opt), bounds=((0, 1),) * len(statements_opt),
-                          options={"eps": eps, }, tol=grid_state["optimize"]["target_error"], method='L-BFGS-B', )
-
-        # Very last call
-        logging.info("Performing final computation")
-        actual, folder = function_to_optimize(result.x, return_folder=True)
-
-        grid_state["optimize"].update(
-            {"folder": folder, "message": str(result.message), "success": bool(result.success),
-                "minimized": float(result.fun), "minimized_actual": float(actual), })
-        save_grid_state(grid_state)
-        print(actual)
-
-    # ------------------------------------------------------------------
     #   New
     # ------------------------------------------------------------------
 
-    elif options.action == "new":
+    if options.action == "new":
 
         # Check if fixed groups are present
-
-        if len(statements_opt) > 0:
-            warn("Found {n} optimizable groups which will be ignored during 'new' run.".format(n=len(statements_opt)))
-            logging.warn("{n} optimizable groups found but action='new'".format(n=len(statements_opt)))
 
         if len(statements_fix) == 0:
             print("No fixed groups found, exiting.")
@@ -1110,147 +909,3 @@ elif options.action == 'which':
                     indent='  ' if len(options.command) > 1 else ''))
         else:
             print('  Not found')
-
-# ----------------------------------------------------------------------
-#   Progress
-# ----------------------------------------------------------------------
-
-elif options.action == "progress":
-
-    # Errors
-
-    if options.files or options.static_files or options.prefix or options.target:
-        parser.error(
-            "-f, --files, -t, --static-files, -p, --prefix, -g, --target options are meaningless for {action} action".format(
-                action=options.action))
-
-    # Try to import
-
-    try:
-        from matplotlib import pyplot
-        from matplotlib.patches import Patch
-        from matplotlib.font_manager import FontManager
-        import colorsys
-    except ImportError:
-        print("Could not import matplotlib")
-        logging.exception("Failed to import matplotlib")
-        sys.exit(1)
-
-    if len(options.command) > 0:
-        filename_data = options.command[0]
-
-    grid_state = get_grid_state()
-
-    if len(grid_state["grid"]) == 0:
-        print("No data available yet")
-        logging.error("No data available yet")
-        sys.exit(1)
-
-    # Order data
-
-    grid = grid_state["grid"].items()
-    grid = [(i[0], i[1]["opt_value"] if "opt_value" in i[1] else None, i[1]["stack"]) for i in grid if "stack" in i[1]]
-    grid.sort(key=lambda x: x[0])
-
-    data_x = {}
-    for parameter in grid[0][2].keys():
-        data_x[parameter] = [g[2][parameter] for g in grid]
-
-    data_x_range = {}
-    for k, v in data_x.items():
-        data_x_range[k] = (min(v), max(v))
-
-    data_x_step = []
-    for p1, p2 in zip(grid[:-1], grid[1:]):
-        total = 0
-        for parameter in data_x.keys():
-            total += (p1[2][parameter] - p2[2][parameter]) ** 2 / (
-                    data_x_range[parameter][1] - data_x_range[parameter][0]) ** 2
-        data_x_step.append(total ** 0.5)
-
-    data_y = [i[1] for i in grid]
-    data_y_numbers = [i for i in data_y if not i is None]
-    if len(data_y_numbers) > 0:
-        data_y_range = [min(data_y_numbers), max(data_y_numbers)]
-    else:
-        data_y_range = [0, 1]
-    if data_y_range[0] == data_y_range[1]:
-        data_y_range[0] -= 0.5
-        data_y_range[1] += 0.5
-    data_location = [i[0] for i in grid]
-    data_colors = [colorsys.hsv_to_rgb(1.0 * i / len(grid), 1, 1) for i in range(len(grid))]
-
-    if len(grid) == 0:
-        print("No optimization data found in grid")
-        logging.error("No optimization data found in grid")
-        sys.exit(1)
-
-    # Ranges of parameters
-
-    data_x_ranges = {}
-    for k in grid[0][2].keys():
-        data_x_ranges[k] = (min([i[2][k] for i in grid]), max([i[2][k] for i in grid]),)
-
-    range_fraction = 0.02
-    ratio = 16. / 9
-
-    # Set plot geometry
-
-    n_keys = len(grid[0][2].keys())
-    w = int(math.ceil((n_keys * ratio) ** .5))
-    h = int(math.ceil(n_keys / w))
-    logging.info("Will arrange {n} plots into {w} by {h} grid".format(n=n_keys, w=w, h=h, ))
-
-    # Plot
-
-    pyplot.figure(facecolor='white')
-
-    pyplot.gcf().legend([Patch(alpha=0.7, color=data_colors[i]) for i in range(len(data_location))], data_location,
-        fancybox=True, bbox_to_anchor=(0.9, 0.5), loc=10, )
-    pyplot.subplots_adjust(right=0.8, hspace=0.3)
-
-    for parameter_i, parameter in enumerate(grid[0][2].keys()):
-
-        pyplot.subplot2grid((w, h), (parameter_i % w, parameter_i // w), axisbg=(0.9, 0.9, 0.9))
-        ax = pyplot.gca()
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-        ax.spines["bottom"].set_visible(False)
-        ax.spines["left"].set_visible(False)
-        ax.xaxis.grid(color='white', linewidth=2, linestyle='solid')
-        ax.yaxis.grid(color='white', linewidth=2, linestyle='solid')
-        ax.set_axisbelow(True)
-        ax.tick_params(axis="both", which="both", bottom="off", top="off", labelbottom="on", left="off", right="off",
-                       labelleft="on")
-
-        data_x_scatter = []
-        data_c_scatter = []
-
-        for x, y, c in zip(data_x[parameter], data_y, data_colors):
-
-            if not y is None:
-                data_x_scatter.append(x)
-                data_c_scatter.append(c)
-
-            else:
-
-                ax.axvline(x=x, c=c, alpha=0.7)
-
-        ax.scatter(data_x_scatter, data_y_numbers, c=data_c_scatter, s=180, alpha=0.7)
-
-        for x1, x2, y1, y2, step in zip(data_x[parameter][:-1], data_x[parameter][1:], data_y[:-1], data_y[1:],
-                data_x_step):
-
-            if not y1 is None and not y2 is None and not x1 == x2 and step < range_fraction:
-                k = (y1 - y2) / (x1 - x2)
-                b = y1 - k * x1
-                x_delta = range_fraction * (data_x_range[parameter][1] - data_x_range[parameter][0])
-                ax.plot([0.5 * (x1 + x2 - x_delta), 0.5 * (x1 + x2 + x_delta)],
-                    [k * 0.5 * (x1 + x2 - x_delta) + b, k * 0.5 * (x1 + x2 + x_delta) + b], antialiased=True,
-                    color='black')
-
-        pyplot.ylim((data_y_range[0] * 1.1 - data_y_range[1] * 0.1, data_y_range[1] * 1.1 - data_y_range[0] * 0.1))
-        pyplot.title("Target vs parameter '{p}'".format(p=parameter))
-
-    pyplot.savefig("progress.png")
-    pyplot.show()
