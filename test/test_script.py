@@ -188,3 +188,18 @@ def test_static_files():
         "grid1/file_include_static": "abc {% [3, 4] %}",
     }
 
+
+def test_prefix():
+    """Prefix option"""
+    base = {"file_with_list": "{% [1, 2, 'a'] %}"}
+    root, output = run_grid(base, "new", "-p", "custom")
+    assert output == ""
+    assert read_folder(root) == {
+        **base,
+        "custom0/file_with_list": "1",
+        "custom1/file_with_list": "2",
+        "custom2/file_with_list": "a",
+    }
+    root, output = run_grid(root, "cleanup")
+    assert output == ""
+    assert read_folder(root, exclude=(".grid.log",)) == base
