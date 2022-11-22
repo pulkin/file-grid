@@ -6,9 +6,10 @@ import pytest
 from pytest_steps import test_steps
 
 
-def setup_folder(files: dict):
+def setup_folder(files: dict, root=None):
     """Sets up a temporary folder and puts files"""
-    root = Path(mkdtemp())
+    if root is None:
+        root = Path(mkdtemp())
     for path, contents in files.items():
         (root / path).parent.mkdir(parents=True, exist_ok=True)
         with open(root / path, 'w') as f:
@@ -73,10 +74,10 @@ def test_const():
     assert read_folder(root) == {**base}  # TODO: update
 
 
-@test_steps("grid new", "grid run", "grid cleanup")
+@test_steps("grid new", "grid run", "grid distribute", "grid cleanup")
 def test_list():
     """List expressions as well as cleanup"""
-    base = {"file_with_list": "{% [1, 2, 'a'] %}", "some_other_file": "abc"}
+    base = {"file_with_list": "{% a = [1, 2, 'a'] %}", "some_other_file": "abc"}
     root, output = run_grid(base, "new")
     assert output == ""
     assert read_folder(root) == {
@@ -96,6 +97,22 @@ def test_list():
         f"{str(root / 'grid2')}",
         "a\n",
     ])
+    yield
+
+    payload = {"additional_file": "{% a * 2 %}"}
+    setup_folder(payload, root)
+    base = {**base, **payload}
+    root, output = run_grid(root, "distribute", "additional_file")
+    assert output == ""
+    assert read_folder(root) == {
+        **base,
+        "grid0/file_with_list": "1",
+        "grid0/additional_file": "2",
+        "grid1/file_with_list": "2",
+        "grid1/additional_file": "4",
+        "grid2/file_with_list": "a",
+        "grid2/additional_file": "aa",
+    }
     yield
 
     root, output = run_grid(root, "cleanup")
