@@ -25,8 +25,8 @@ parser.add_argument("-t", "--static-files", nargs="+", help="files to be copied"
 parser.add_argument("-p", "--prefix", help="prefix for grid folders", metavar="STRING")
 parser.add_argument("-g", "--target", help="target tolerance for optimization", metavar="FLOAT", type=float)
 parser.add_argument("-c", action='store_true', help="continue optimization without removing existing grid state")
-parser.add_argument("action", help="action to perform", choices=["new", "run", "cleanup", "which", "distribute"])
-parser.add_argument("command", nargs="*", help="command to execute or list of folders for 'which' action")
+parser.add_argument("action", help="action to perform", choices=["new", "run", "cleanup", "distribute"])
+parser.add_argument("command", nargs="*", help="command to execute for 'run' action")
 
 options = parser.parse_args()
 logging.info(' '.join(sys.argv))
@@ -876,36 +876,3 @@ elif options.action == "cleanup":
 
     if error:
         sys.exit(1)
-
-# ----------------------------------------------------------------------
-#   Which
-# ----------------------------------------------------------------------
-
-elif options.action == 'which':
-
-    # Errors
-
-    if options.files or options.static_files or options.prefix or options.target:
-        parser.error(
-            "-f, --files, -t, --static-files, -p, --prefix, -g, --target options are meaningless for {action} action".format(
-                action=options.action))
-
-    grid_state = get_grid_state()
-
-    if len(options.command) == 0:
-        options.command = grid_state["grid"].keys()
-
-    for i in options.command:
-        if len(options.command) > 1:
-            print(os.path.abspath(i))
-        if i in grid_state["grid"]:
-
-            max_key_len = len(max(grid_state["grid"][i].keys(), key=len))
-            max_key_len = min(20, max_key_len)
-
-            for k, v in grid_state["grid"][i].items():
-                print("{indent}{key}: {value}".format(
-                    key=k.rjust(max_key_len) if len(k) <= max_key_len else k[:max_key_len - 3] + '...', value=v,
-                    indent='  ' if len(options.command) > 1 else ''))
-        else:
-            print('  Not found')
