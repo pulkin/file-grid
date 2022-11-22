@@ -1105,8 +1105,7 @@ elif options.action == "run":
 
         try:
             print(cwd)
-            p = subprocess.Popen(options.command, cwd=cwd)
-            p.wait()
+            print(subprocess.check_output(options.command, cwd=cwd, stderr=subprocess.PIPE, text=True))
         except:
             print("Failed to execute {command} (working directory {directory})".format(command=command, directory=cwd))
             logging.exception(
@@ -1114,7 +1113,7 @@ elif options.action == "run":
             sys.exit(1)
 
         logging.info(
-            "  executed {command} in {directory} with PID:{pid}".format(command=command, directory=cwd, pid=p.pid))
+            "  executed {command} in {directory}".format(command=command, directory=cwd))
 
 # ----------------------------------------------------------------------
 #   Cleanup grid

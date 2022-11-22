@@ -66,14 +66,14 @@ def test_const():
 @test_steps("grid new", "grid run", "grid cleanup")
 def test_list():
     """List expressions as well as cleanup"""
-    base = {"file_with_list": "{% [1, 2, 'a'] %}\n", "some_other_file": "abc"}
+    base = {"file_with_list": "{% [1, 2, 'a'] %}", "some_other_file": "abc"}
     root, output = run_grid(base, "new")
     assert output == ""
     assert read_folder(root) == {
         **base,
-        "grid0/file_with_list": "1\n",
-        "grid1/file_with_list": "2\n",
-        "grid2/file_with_list": "a\n",
+        "grid0/file_with_list": "1",
+        "grid1/file_with_list": "2",
+        "grid2/file_with_list": "a",
     }
     yield
 
