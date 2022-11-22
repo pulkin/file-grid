@@ -231,20 +231,25 @@ if options.action == "new" or options.action == "optimize" or options.action == 
             return "Expression {0}".format(repr(self))
 
         @staticmethod
-        def evaluateToStack(stack, statements, attr = None):
+        def evaluateToStack(stack, statements, attr = None, require=False):
             statements = statements.copy()
             done = False
             
             while not done:
                 
                 done = True
-                
+
                 for k,v in statements.items():
                     if not attr is None:
                         v = getattr(v,attr)
                     if not k in stack and v.ready(stack):
                         stack[k] = v.evaluate(stack)
                         done = False
+
+            if require:
+                delta = set(statements).difference(set(stack))
+                if len(delta) > 0:
+                    raise ValueError(f"{len(delta)} expressions cannot be evaluated: {', '.join(sorted(delta))}")
                         
     # Language definitions
     
@@ -1007,7 +1012,7 @@ if options.action == "new" or options.action == "optimize" or options.action == 
             stack["__grid_folder_name__"] = scratch
             stack["__grid_id__"] = index
             
-            DelayedExpression.evaluateToStack(stack, statements_dep, attr = "expression")
+            DelayedExpression.evaluateToStack(stack, statements_dep, attr = "expression", require=True)
             grid_state["grid"][scratch] = {"stack":stack}
             write_grid(scratch, stack, files_static, files_grid)
             index += 1

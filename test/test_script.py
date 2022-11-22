@@ -1,3 +1,4 @@
+import pathlib
 from tempfile import mkdtemp
 from pathlib import Path
 from subprocess import check_output, PIPE, CalledProcessError
@@ -14,9 +15,14 @@ def setup_folder(files: dict):
     return root
 
 
-def run_grid(files: dict, *args, path=Path("grid.py").absolute(), **kwargs):
+def run_grid(files, *args, path=Path("grid.py").absolute(), **kwargs):
     """Runs the script"""
-    root = setup_folder(files)
+    if isinstance(files, (str, pathlib.Path)):
+        root = Path(files)
+    elif isinstance(files, dict):
+        root = setup_folder(files)
+    else:
+        raise NotImplementedError(f"{files=}")
     try:
         return root, check_output([path, *args], stderr=PIPE, text=True, cwd=root, **kwargs)
     except CalledProcessError as e:
@@ -57,7 +63,7 @@ def test_const():
 
 
 def test_list():
-    """List expressions"""
+    """List expressions as well as cleanup"""
     base = {"file_with_list": "{% [1, 2, 'a'] %}"}
     root, output = run_grid(base, "new")
     assert output == ""
@@ -67,6 +73,9 @@ def test_list():
         "grid1/file_with_list": "2",
         "grid2/file_with_list": "a",
     }
+    root, output = run_grid(root, "cleanup")
+    assert output == ""
+    assert read_folder(root, exclude=(".grid.log",)) == base
 
 
 def test_range_1():
@@ -118,3 +127,27 @@ def test_linspace():
         "grid1/file_with_linspace": "l=7.5000000000",
         "grid2/file_with_linspace": "l=10.0000000000",
     }
+
+
+def test_dependency():
+    """Dependency expressions"""
+    base = {"file_with_dependency": "{% a = [1, 2, 3] %}, {% b = 2 * a %}, {% c = 3 * b %}"}
+    root, output = run_grid(base, "new")
+    assert output == ""
+    assert read_folder(root) == {
+        **base,
+        "grid0/file_with_dependency": "1, 2, 6",
+        "grid1/file_with_dependency": "2, 4, 12",
+        "grid2/file_with_dependency": "3, 6, 18",
+    }
+
+
+def test_loop_dependency():
+    """Loop dependency expressions"""
+    base = {"file_with_dependency": "{% a = b %}, {% b = 2 * a %} {% x = [1, 2] %}"}
+    with pytest.raises(CalledProcessError) as e_info:
+        run_grid(base, "new")
+    e = e_info.value
+    assert e.returncode == 1
+    assert e.stderr.endswith("ValueError: 2 expressions cannot be evaluated: a, b\n")
+    assert e.stdout == ""
