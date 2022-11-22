@@ -35,7 +35,8 @@ options = parser.parse_args()
 logging.info(' '.join(sys.argv))
 
 
-def state():
+def get_grid_state():
+    """Reads the grid state"""
     try:
         with open(filename_data, "r") as f:
             return json.load(f)
@@ -43,14 +44,10 @@ def state():
         raise FileNotFoundError(f"Grid file does not exit: {repr(e.filename)}") from e
 
 
-def save_state(state):
-    try:
-        with open(filename_data, "w") as f:
-            json.dump(state, f, indent=4)
-    except IOError as e:
-        print(e)
-        logging.exception("Could not save the grid state")
-        sys.exit(1)
+def save_grid_state(state):
+    """Saves the grid state"""
+    with open(filename_data, "w") as f:
+        json.dump(state, f, indent=4)
 
 
 def folder_name(index):
@@ -784,7 +781,7 @@ if options.action == "new" or options.action == "optimize" or options.action == 
 
     # Read previous run
     if options.c or options.action == "distribute":
-        grid_state = state()
+        grid_state = get_grid_state()
         logging.info("Continue with previous {n} instances".format(n=len(grid_state["grid"])))
     else:
         grid_state = {"grid": {}}
@@ -860,7 +857,7 @@ if options.action == "new" or options.action == "optimize" or options.action == 
             scratch = folder_name(index)
             grid_state["grid"][scratch] = {"stack": stack}
             write_grid(scratch, stack, files_static, files_grid)
-            save_state(grid_state)
+            save_grid_state(grid_state)
 
             try:
                 logging.info("Executing '{ex}'".format(ex=' '.join(options.command)))
@@ -884,7 +881,7 @@ if options.action == "new" or options.action == "optimize" or options.action == 
                 sys.exit(1)
 
             grid_state["grid"][scratch] = {"stack": stack, "opt_value": result}
-            save_state(grid_state)
+            save_grid_state(grid_state)
 
             index += 1
             logging.info("Responded value {value}".format(value=result))
@@ -946,7 +943,7 @@ if options.action == "new" or options.action == "optimize" or options.action == 
         grid_state["optimize"].update(
             {"folder": folder, "message": str(result.message), "success": bool(result.success),
                 "minimized": float(result.fun), "minimized_actual": float(actual), })
-        save_state(grid_state)
+        save_grid_state(grid_state)
         print(actual)
 
     # ------------------------------------------------------------------
@@ -980,7 +977,7 @@ if options.action == "new" or options.action == "optimize" or options.action == 
 
         # Save state
 
-        save_state(grid_state)
+        save_grid_state(grid_state)
 
     # ------------------------------------------------------------------
     #   Distribute
@@ -1011,7 +1008,7 @@ elif options.action == "run":
     if len(options.command) == 0:
         parser.error("no command to run specified")
 
-    current_state = state()
+    current_state = get_grid_state()
 
     for f in current_state["grid"]:
 
@@ -1052,7 +1049,7 @@ elif options.action == "cleanup":
             os.remove(s)
 
 
-    current_state = state()
+    current_state = get_grid_state()
 
     error = False
 
@@ -1094,7 +1091,7 @@ elif options.action == 'which':
             "-f, --files, -t, --static-files, -p, --prefix, -g, --target options are meaningless for {action} action".format(
                 action=options.action))
 
-    grid_state = state()
+    grid_state = get_grid_state()
 
     if len(options.command) == 0:
         options.command = grid_state["grid"].keys()
@@ -1142,7 +1139,7 @@ elif options.action == "progress":
     if len(options.command) > 0:
         filename_data = options.command[0]
 
-    grid_state = state()
+    grid_state = get_grid_state()
 
     if len(grid_state["grid"]) == 0:
         print("No data available yet")
