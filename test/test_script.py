@@ -151,3 +151,22 @@ def test_loop_dependency():
     assert e.returncode == 1
     assert e.stderr.endswith("ValueError: 2 expressions cannot be evaluated: a, b\n")
     assert e.stdout == ""
+
+
+def test_explicit_files():
+    """Explicit files spec"""
+    base = {
+        "file_include": "{% [1, 2] %}",
+        "file_include_static": "abc",
+        "file_exclude": "{% [3, 4] %}",
+        "file_exclude_static": "def",
+    }
+    root, output = run_grid(base, "new", "--files", "file_include", "file_include_static")
+    assert output == ""
+    assert read_folder(root) == {
+        **base,
+        "grid0/file_include": "1",
+        "grid0/file_include_static": "abc",
+        "grid1/file_include": "2",
+        "grid1/file_include_static": "abc",
+    }
