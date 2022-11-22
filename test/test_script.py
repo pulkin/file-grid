@@ -64,7 +64,7 @@ def test_const():
 
 def test_list():
     """List expressions as well as cleanup"""
-    base = {"file_with_list": "{% [1, 2, 'a'] %}"}
+    base = {"file_with_list": "{% [1, 2, 'a'] %}", "some_other_file": "abc"}
     root, output = run_grid(base, "new")
     assert output == ""
     assert read_folder(root) == {
@@ -170,3 +170,21 @@ def test_explicit_files():
         "grid1/file_include": "2",
         "grid1/file_include_static": "abc",
     }
+
+
+def test_static_files():
+    """Explicit files spec"""
+    base = {
+        "file_with_list": "{% [1, 2] %}",
+        "file_include_static": "abc {% [3, 4] %}",
+    }
+    root, output = run_grid(base, "new", "--static-files", "file_include_static")
+    assert output == ""
+    assert read_folder(root) == {
+        **base,
+        "grid0/file_with_list": "1",
+        "grid0/file_include_static": "abc {% [3, 4] %}",
+        "grid1/file_with_list": "2",
+        "grid1/file_include_static": "abc {% [3, 4] %}",
+    }
+

@@ -711,51 +711,10 @@ if options.action == "new" or options.action == "optimize" or options.action == 
     #   Common part
     # ------------------------------------------------------------------
 
-    files = []
-
-    if options.files or options.action == "distribute":
-
-        # Match files
-        logging.info("The files are provided explicitly")
-
-        file_list = options.command if options.action == "distribute" else options.files
-        for i in file_list:
-
-            new = glob.glob(i)
-            if len(new) == 0:
-                print("File '{pattern}' not found or pattern matched 0 files".format(pattern=i))
-                logging.error("No grid files provided")
-                sys.exit(1)
-            files = files + new
-        for f in files:
-            logging.info("  {name}".format(name=f))
-
-    else:
-
-        # Find files, default behavior
-        logging.info("Searching for grid files in current folder")
-
-        for i in os.listdir('.'):
-            if os.path.isfile(i):
-                try:
-                    with open(i, 'r') as f:
-                        if not GridFile(f.read()).is_trivial():
-                            logging.info("  {name}".format(name=i))
-                            files.append(i)
-                except:
-                    logging.exception("Failed to read {name}".format(name=i))
-
-        if len(files) == 0:
-            print("No grid-formatted files found in this folder")
-            logging.error("No grid files found in . folder")
-            sys.exit(1)
-
-    logging.info("Total: {n} files".format(n=len(files)))
-
     # Match static items
     logging.info("Matching static part")
 
-    files_static = []
+    files_static = set()
     for i in options.static_files:
 
         new = glob.glob(i)
@@ -767,9 +726,56 @@ if options.action == "new" or options.action == "optimize" or options.action == 
         for f in new:
             logging.info("  {name}".format(name=f))
 
-        files_static = files_static + new
+        files_static.update(new)
 
     logging.info("Total: {n} items".format(n=len(files_static)))
+
+    files = set()
+
+    if options.files or options.action == "distribute":
+
+        # Match files
+        logging.info("The files are provided explicitly")
+
+        file_list = options.command if options.action == "distribute" else options.files
+        for i in file_list:
+
+            new = set(glob.glob(i))
+            new.difference_update(files_static)
+            if len(new) == 0:
+                print("File '{pattern}' not found or pattern matched 0 files"
+                      " or all files declared as 'static'".format(pattern=i))
+                logging.error("No grid files provided")
+                sys.exit(1)
+
+            files.update(new)
+        for f in files:
+            logging.info("  {name}".format(name=f))
+
+    else:
+
+        # Find files, default behavior
+        logging.info("Searching for grid files in current folder")
+
+        for i in os.listdir('.'):
+            if os.path.isfile(i) and i not in files_static:
+                try:
+                    with open(i, 'r') as f:
+                        if not GridFile(f.read()).is_trivial():
+                            logging.info("  {name}".format(name=i))
+                            files.add(i)
+                except:
+                    logging.exception("Failed to read {name}".format(name=i))
+
+        if len(files) == 0:
+            print("No grid-formatted files found in this folder")
+            logging.error("No grid files found in . folder")
+            sys.exit(1)
+
+    logging.info("Total: {n} files".format(n=len(files)))
+
+    files_static = sorted(files_static)
+    files = sorted(files)
 
     # Read files
 
