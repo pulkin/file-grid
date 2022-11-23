@@ -1,4 +1,5 @@
 import pathlib
+import sys
 from tempfile import mkdtemp
 from pathlib import Path
 from subprocess import check_output, PIPE, CalledProcessError
@@ -17,7 +18,7 @@ def setup_folder(files: dict, root=None):
     return root
 
 
-def run_grid(files, *args, path=Path("grid.py").absolute(), **kwargs):
+def run_grid(files, *args, path=tuple("python -m grid_run".split()), **kwargs):
     """Runs the script"""
     if isinstance(files, (str, pathlib.Path)):
         root = Path(files)
@@ -26,7 +27,7 @@ def run_grid(files, *args, path=Path("grid.py").absolute(), **kwargs):
     else:
         raise NotImplementedError(f"{files=}")
     try:
-        return root, check_output([path, *args], stderr=PIPE, text=True, cwd=root, **kwargs)
+        return root, check_output([*path, *args], stderr=PIPE, text=True, cwd=root, **kwargs)
     except CalledProcessError as e:
         e.root_folder = root
         raise

@@ -83,7 +83,6 @@ if options.action in ("new", "distribute"):
             logging.error("Previous run found, exiting")
             sys.exit(1)
 
-
     # ------------------------------------------------------------------
     #   Language
     # ------------------------------------------------------------------
