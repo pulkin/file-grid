@@ -5,10 +5,17 @@ grid-run
 
 Distribute your HPC jobs seamlessly using a simple template language.
 
+One-liner install
+-----------------
+
+```bash
+pip install git+https://github.com/pulkin/grid-run.git#egg=grid_run
+```
+
 Build
 -----
 
-```commanline
+```bash
 pip install build
 python -m build
 ```
@@ -16,20 +23,20 @@ python -m build
 Install
 -------
 
-```commandline
+```bash
 pip install dist/*.tar.gz
 ```
 
 Run
 ---
 
-```commandline
+```bash
 python -m grid_run
 ```
 
 or simply
 
-```commandline
+```bash
 grid
 ```
 
