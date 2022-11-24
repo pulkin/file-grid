@@ -875,3 +875,7 @@ elif options.action == "cleanup":
 
     if error:
         sys.exit(1)
+
+
+def dummy():
+    pass  # TODO: remove dummy function needed for console_scripts
