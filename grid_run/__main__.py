@@ -22,7 +22,7 @@ logging.basicConfig(filename=filename_log, filemode="w", level=logging.INFO)
 parser = argparse.ArgumentParser(description="Creates an array [grid] of similar jobs and executes [submits] them")
 parser.add_argument("-f", "--files", nargs="+", help="files to be processed", metavar="FILENAME")
 parser.add_argument("-t", "--static-files", nargs="+", help="files to be copied", metavar="FILENAME")
-parser.add_argument("-p", "--prefix", help="prefix for grid folders", metavar="STRING")
+parser.add_argument("-n", "--name", help="grid folder naming pattern", metavar="STRING")
 parser.add_argument("-g", "--target", help="target tolerance for optimization", metavar="FLOAT", type=float)
 parser.add_argument("-c", action='store_true', help="continue optimization without removing existing grid state")
 parser.add_argument("action", help="action to perform", choices=["new", "run", "cleanup", "distribute"])
@@ -49,7 +49,7 @@ def save_grid_state(state):
 
 def folder_name(index):
     """Folder name convention"""
-    return f"{options.prefix}{index}"
+    return options.name % index
 
 
 # ----------------------------------------------------------------------
@@ -67,8 +67,8 @@ if options.action in ("new", "distribute"):
     if not options.static_files:
         options.static_files = []
 
-    if not options.prefix:
-        options.prefix = 'grid'
+    if not options.name:
+        options.name = 'grid%d'
 
     if options.action == "distribute":
         if not os.path.exists(filename_data):
@@ -228,11 +228,6 @@ if options.action in ("new", "distribute"):
         return result
 
 
-    # PowExpression = Forward()
-    # PowExpression << ( AtomicExpression + ZeroOrMore( Literal("**") + PowExpression) ).setParseAction(evaluate)
-    # MultExpression = Forward()
-    # MultExpression << ( PowExpression + ZeroOrMore( (Literal("*") ^ Literal("/")) + MultExpression) ).setParseAction(evaluate)
-    # GenericExpression << ( MultExpression + ZeroOrMore( (Literal("+") ^ Literal("-")) + MultExpression)).setParseAction(evaluate)
     from pyparsing import infix_notation, opAssoc, oneOf, ParseResults
 
     GenericExpression << infix_notation(AtomicExpression, [("**", 2, opAssoc.RIGHT), (oneOf("* /"), 2, opAssoc.LEFT),
@@ -621,13 +616,14 @@ if options.action in ("new", "distribute"):
     index = len(grid_state["grid"])
 
     # Check if folders already exist
-    for x in glob.glob(options.prefix + "*"):
-        if not x in grid_state["grid"]:
-            print(
-                "File or folder {name} may conflict with the grid. Either remove it or use a different prefix through '--prefix' option.".format(
-                    name=x))
-            logging.error("{name} already exists".format(name=x))
-            sys.exit(1)
+    # TODO: this checks if there are any folders starting with [former] prefix
+    # for x in glob.glob(options.prefix + "*"):
+    #     if not x in grid_state["grid"]:
+    #         print(
+    #             "File or folder {name} may conflict with the grid. Either remove it or use a different prefix through '--prefix' option.".format(
+    #                 name=x))
+    #         logging.error("{name} already exists".format(name=x))
+    #         sys.exit(1)
 
     # ------------------------------------------------------------------
     #   New
@@ -679,9 +675,9 @@ elif options.action == "run":
 
     # Errors
 
-    if options.files or options.static_files or options.prefix or options.target:
+    if options.files or options.static_files or options.name or options.target:
         parser.error(
-            "-f, --files, -t, --static-files, -p, --prefix, -g, --target options are meaningless for {action} action".format(
+            "-f, --files, -t, --static-files, -n, --name, -g, --target options are meaningless for {action} action".format(
                 action=options.action))
 
     if len(options.command) == 0:
@@ -713,9 +709,9 @@ elif options.action == "cleanup":
 
     # Errors
 
-    if options.files or options.static_files or options.prefix or options.target:
+    if options.files or options.static_files or options.name or options.target:
         parser.error(
-            "-f, --files, -t, --static-files, -p, --prefix, -g, --target options are meaningless for {action} action".format(
+            "-f, --files, -t, --static-files, -n, --name, -g, --target options are meaningless for {action} action".format(
                 action=options.action))
 
 

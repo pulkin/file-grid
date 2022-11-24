@@ -238,10 +238,10 @@ def test_static_files(grid_script):
 
 
 @test_steps("grid new", "grid cleanup")
-def test_prefix(grid_script):
+def test_name(grid_script):
     """Prefix option"""
     base = {"file_with_list": "{% [1, 2, 'a'] %}"}
-    root, output = run_grid(base, grid_script, "new", "-p", "custom")
+    root, output = run_grid(base, grid_script, "new", "-n", "custom%d")
     assert output == ""
     assert read_folder(root) == {
         **base,
