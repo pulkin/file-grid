@@ -27,8 +27,7 @@ def run_grid(files, *args, path=tuple("python -m grid_run".split()), **kwargs):
     else:
         raise NotImplementedError(f"{files=}")
     try:
-        return root, check_output([*path, *args], stderr=PIPE, text=True, cwd=root,
-                                  env={"PYTHONPATH": ':'.join([str(Path(".").absolute()), *sys.path])}, **kwargs)
+        return root, check_output([*path, *args], stderr=PIPE, text=True, cwd=root, **kwargs)
     except CalledProcessError as e:
         e.root_folder = root
         raise
