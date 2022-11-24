@@ -1,3 +1,6 @@
+from operator import add, sub, truediv, floordiv, mul, pow
+
+
 class Variable(object):
 
     def __init__(self, name):
@@ -10,43 +13,37 @@ class Variable(object):
         return self.name in stack
 
     def __add__(self, another):
-        return DelayedExpression(lambda x, y: x + y, self, another)
+        return DelayedExpression(add, self, another)
 
     def __sub__(self, another):
-        return DelayedExpression(lambda x, y: x - y, self, another)
+        return DelayedExpression(sub, self, another)
 
     def __mul__(self, another):
-        return DelayedExpression(lambda x, y: x * y, self, another)
-
-    def __div__(self, another):
-        return DelayedExpression(lambda x, y: x / y, self, another)
+        return DelayedExpression(mul, self, another)
 
     def __truediv__(self, another):
-        return DelayedExpression(lambda x, y: x / y, self, another)
+        return DelayedExpression(truediv, self, another)
 
     def __floordiv__(self, another):
-        return DelayedExpression(lambda x, y: x // y, self, another)
+        return DelayedExpression(floordiv, self, another)
 
     def __radd__(self, another):
-        return DelayedExpression(lambda x, y: x + y, another, self)
+        return DelayedExpression(add, another, self)
 
     def __rsub__(self, another):
-        return DelayedExpression(lambda x, y: x - y, another, self)
+        return DelayedExpression(sub, another, self)
 
     def __rmul__(self, another):
-        return DelayedExpression(lambda x, y: x * y, another, self)
-
-    def __rdiv__(self, another):
-        return DelayedExpression(lambda x, y: x / y, self, another)
+        return DelayedExpression(mul, another, self)
 
     def __rtruediv__(self, another):
-        return DelayedExpression(lambda x, y: x / y, another, self)
+        return DelayedExpression(truediv, another, self)
 
     def __rfloordiv__(self, another):
-        return DelayedExpression(lambda x, y: x // y, another, self)
+        return DelayedExpression(floordiv, another, self)
 
     def __pow__(self, another):
-        return DelayedExpression(lambda x, y: x ** y, self, another)
+        return DelayedExpression(pow, self, another)
 
     def __repr__(self):
         return self.name
