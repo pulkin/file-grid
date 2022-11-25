@@ -92,7 +92,7 @@ def test_raise_cleanup_missing(grid_script):
     assert e.returncode == 1
     assert e.stderr.endswith("No such file or directory: \'grid1\'\n")
     assert e.stdout == ""
-    assert read_folder(root) == base
+    assert read_folder(root, exclude=(".grid.log",)) == base
 
 
 @pytest.mark.skip("to be implemented")
