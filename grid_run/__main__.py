@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import uuid
+from pathlib import Path
 from operator import attrgetter
 from warnings import warn
 
@@ -663,43 +664,43 @@ if options.action in ("new", "distribute"):
         if len(statements_dep) == 0:
             warn("No dependent statements found. The file(s) will be distributed as-is.")
 
+        logging.info(f"Distributing files into {len(grid_state)} folders")
+        exceptions = []
         for k, v in grid_state["grid"].items():
             DelayedExpression.evaluateToStack(v["stack"], statements_dep, attr="expression")
-            write_grid(k, v["stack"], files_static, files_grid)
+            if not Path(k).is_dir():
+                logging.exception(f"Grid folder {k} does not exist")
+                exceptions.append(FileNotFoundError(f"No such file or directory: {repr(k)}"))
+            else:
+                write_grid(k, v["stack"], files_static, files_grid)
+        if len(exceptions) > 0:
+            raise exceptions[-1]
 
 # ----------------------------------------------------------------------
 #   Execute in context of grid
 # ----------------------------------------------------------------------
 
 elif options.action == "run":
-
-    # Errors
-
     if options.files or options.static_files or options.name or options.target:
-        parser.error(
-            "-f, --files, -t, --static-files, -n, --name, -g, --target options are meaningless for {action} action".format(
-                action=options.action))
-
+        parser.error(f"-f, --files, -t, --static-files, -n, --name, -g, --target options "
+                     f"are irrelevant to {repr(options.action)}")
     if len(options.command) == 0:
-        parser.error("no command to run specified")
+        parser.error("missing command to run")
 
     current_state = get_grid_state()
-
-    for f in current_state["grid"]:
-
-        command = " ".join(options.command)
-        cwd = os.path.abspath(f)
+    logging.info(f"Executing {' '.join(options.command)} in {len(current_state['grid'])} grid folders")
+    exceptions = []
+    for cwd in current_state["grid"]:
 
         try:
             print(cwd)
             print(subprocess.check_output(options.command, cwd=cwd, stderr=subprocess.PIPE, text=True))
-        except:
-            print("Failed to execute {command} (working directory {directory})".format(command=command, directory=cwd))
-            logging.exception(
-                "Failed to execute {command} (working directory {directory})".format(command=command, directory=cwd))
-            sys.exit(1)
-
-        logging.info("  executed {command} in {directory}".format(command=command, directory=cwd))
+        except (FileNotFoundError, subprocess.SubprocessError) as e:
+            print(f"Failed to execute {' '.join(options.command)} (working directory {repr(cwd)})")
+            logging.exception(f"Failed to execute {' '.join(options.command)} (working directory {repr(cwd)})")
+            exceptions.append(e)
+    if len(exceptions) > 0:
+        raise exceptions[-1]
 
 # ----------------------------------------------------------------------
 #   Cleanup grid
