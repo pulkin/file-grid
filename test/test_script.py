@@ -2,6 +2,7 @@ import pathlib
 from tempfile import mkdtemp
 from pathlib import Path
 from subprocess import check_output, PIPE, CalledProcessError
+import shutil
 import pytest
 from pytest_steps import test_steps
 
@@ -68,6 +69,30 @@ def test_raise_non_existent(grid_script):
     assert e.returncode == 1
     assert e.stderr.endswith("Grid file does not exit: '.grid'\n")
     assert e.stdout == ""
+
+
+def test_raise_cleanup_missing(grid_script):
+    """Ensures cleanup cleans up properly even if files missing"""
+    base = {"file_with_list": "{% a = [1, 2, 'a'] %}", "some_other_file": "abc"}
+    root, output = run_grid(base, grid_script, "new")
+    assert output == ""
+    assert read_folder(root) == {
+        **base,
+        "grid0/file_with_list": "1",
+        "grid1/file_with_list": "2",
+        "grid2/file_with_list": "a",
+    }
+
+    # remove one of grid folders
+    shutil.rmtree(root / "grid1")
+
+    with pytest.raises(CalledProcessError) as e_info:
+        run_grid(root, grid_script, "cleanup")
+    e = e_info.value
+    assert e.returncode == 1
+    assert e.stderr.endswith("No such file or directory: \'grid1\'\n")
+    assert e.stdout == ""
+    assert read_folder(root) == base
 
 
 @pytest.mark.skip("to be implemented")

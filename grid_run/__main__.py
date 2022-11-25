@@ -706,52 +706,26 @@ elif options.action == "run":
 # ----------------------------------------------------------------------
 
 elif options.action == "cleanup":
-
-    # Errors
-
     if options.files or options.static_files or options.name or options.target:
-        parser.error(
-            "-f, --files, -t, --static-files, -n, --name, -g, --target options are meaningless for {action} action".format(
-                action=options.action))
-
-
-    def remove(s):
-
-        if os.path.isdir(s):
-            shutil.rmtree(s)
-
-        elif os.path.isfile(s):
-            os.remove(s)
-
+        parser.error(f"-f, --files, -t, --static-files, -n, --name, -g, --target options "
+                     f"are irrelevant to {repr(options.action)}")
 
     current_state = get_grid_state()
-
-    error = False
-
-    logging.info("Removing folders")
-
+    logging.info("Removing grid folders")
+    exceptions = []
     for f in current_state["grid"]:
-
         try:
-            if os.path.exists(f):
-                remove(f)
-                logging.info("  {name}".format(name=f))
+            shutil.rmtree(f)
+            logging.info(f"  {f}")
         except Exception as e:
-            print(e)
-            logging.exception("Error while removing {name}".format(name=f))
-            error = True
-
-    logging.info("Removing data file")
-
-    try:
-        remove(filename_data)
-    except Exception as e:
-        print(e)
-        logging.exception("Error while removing {name}".format(name=filename_data))
-        sys.exit(1)
-
-    if error:
-        sys.exit(1)
+            exceptions.append(e)
+            logging.exception(f"Error while removing {f}")
+    if len(exceptions):
+        logging.error(f"{len(exceptions)} exceptions occurred while removing grid folders")
+    logging.info("Removing the data file")
+    os.remove(filename_data)
+    if len(exceptions):
+        raise exceptions[-1]
 
 
 def dummy():
