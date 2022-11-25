@@ -12,6 +12,7 @@ import uuid
 from pathlib import Path
 from operator import attrgetter
 from warnings import warn
+from itertools import product
 
 from pyparsing import *
 
@@ -265,16 +266,6 @@ if options.action in ("new", "distribute"):
             else:
                 self.id = id
 
-        def is_regular(self):
-            try:
-                len(self.expression)
-                return True
-            except TypeError:
-                return False
-
-        def is_evaluatable(self):
-            return "evaluate" in dir(self.expression)
-
         def line(self):
             return sum(1 for x in self.file.__source__[:self.start] if x == '\n')
 
@@ -382,7 +373,7 @@ if options.action in ("new", "distribute"):
                 elif isinstance(chunk, int):
                     f.write("{0:d}".format(chunk))
                 else:
-                    raise Exception("Internal error occurred: type of chunk is {type}".format(type=type(chunk)))
+                    raise Exception(f"Internal error occurred: type of {chunk} is {type(chunk)}")
 
                 start = i.end
 
@@ -396,25 +387,10 @@ if options.action in ("new", "distribute"):
 
 
     def combinations(n):
-
-        n_keys = n.keys()
-        n_max = tuple(len(n[k].expression) for k in n_keys)
-        i = list((0,) * len(n_max))
-
-        while True:
-            result = {}
-            for k, v in zip(n_keys, i):
-                result[k] = n[k].expression[v]
-            yield result
-
-            for x, mx in zip(range(len(i)), n_max):
-                i[x] += 1
-                if i[x] < mx:
-                    break
-                else:
-                    i[x] = 0
-                if x == len(i) - 1:
-                    return
+        keys = n.keys()
+        values = list(i.expression for i in n.values())
+        for i in product(*values):
+            yield dict(zip(keys, i))
 
 
     def copy(s, d, dry=False):
@@ -583,13 +559,19 @@ if options.action in ("new", "distribute"):
 
     # Split statements by type
     total = 1
+    statements_const = {}
     statements_fix = {}
     statements_dep = {}
 
     for k, v in statements.items():
+        expr = v.expression
 
-        if v.is_regular():
-            logging.info("  statement {name}: {n} | {value}".format(name=k, n=len(v.expression), value=str(v)))
+        if isinstance(expr, (int, float, str)):
+            logging.info(f"  {k} = {expr} (const)")
+            statements_const[k] = v
+
+        elif "__len__" in dir(expr):
+            logging.info(f"  {k} = {expr} ({len(expr)} choices)")
             statements_fix[k] = v
             total = total * len(v.expression)
             if total > 1e6:
@@ -597,12 +579,12 @@ if options.action in ("new", "distribute"):
                 logging.error("Grid size exceeds a million")
                 sys.exit(1)
 
-        elif v.is_evaluatable():
-            logging.info("  statement {name}: evaluatable | {value}".format(name=k, value=str(v)))
+        elif "evaluate" in dir(expr):
+            logging.info(f"  {k} = {v} (expression)")
             statements_dep[k] = v
 
         else:
-            raise Exception("Internal error: unknown expression {ex}".format(ex=v.expression, ))
+            raise Exception(f"Internal error: unknown expression {expr} {type(expr)=}")
     logging.info(
         "Total: {fixed} fixed statement(s) ({comb} combination(s)), and {dep} dependent statement(s)".format(
             fixed=len(statements_fix), dep=len(statements_dep), comb=total, ))
@@ -631,20 +613,15 @@ if options.action in ("new", "distribute"):
     # ------------------------------------------------------------------
 
     if options.action == "new":
-
-        # Check if fixed groups are present
-
         if len(statements_fix) == 0:
-            print("No fixed groups found, exiting.")
-            logging.error("'grid new' is invoked but no fixed groups found")
-            sys.exit(1)
+            warn(f"No fixed groups found")
 
         # Iterate over possible combinations and write a grid
-
         for stack in combinations(statements_fix):
             scratch = folder_name(index)
             stack["__grid_folder_name__"] = scratch
             stack["__grid_id__"] = index
+            stack.update({k: v.expression for k, v in statements_const.items()})
 
             DelayedExpression.evaluateToStack(stack, statements_dep, attr="expression", require=True)
             grid_state["grid"][scratch] = {"stack": stack}

@@ -4,6 +4,7 @@ from tempfile import mkdtemp
 from pathlib import Path
 from subprocess import check_output, PIPE, CalledProcessError
 import shutil
+import sys
 import pytest
 from pytest_steps import test_steps
 
@@ -35,6 +36,8 @@ def run_grid(files, grid_script, *args, **kwargs):
     try:
         return root, check_output([*grid_script.split(), *args], stderr=PIPE, text=True, cwd=root, **kwargs)
     except CalledProcessError as e:
+        sys.stdout.write(e.stdout)
+        sys.stderr.write(e.stderr)
         e.root_folder = root
         raise
 
@@ -72,13 +75,12 @@ def test_raise_non_existent(grid_script):
     assert e.stdout == ""
 
 
-@pytest.mark.skip("to be implemented")
 def test_const(grid_script):
     """Constant expressions"""
     base = {"file_with_const": "{% 1 %} {% 'a' %} {% 3 %}"}
     root, output = run_grid(base, grid_script, "new")
     assert output == ""
-    assert read_folder(root) == {**base}  # TODO: update
+    assert read_folder(root) == {**base, "grid0/file_with_const": "1 a 3"}
 
 
 @test_steps("grid new", "grid run", "grid distribute", "grid cleanup")
