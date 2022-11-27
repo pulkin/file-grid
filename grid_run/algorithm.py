@@ -1,36 +1,39 @@
-def eval_all(statements, names, builtins=None):
-    """Evaluates all expressions from the dict"""
-    if builtins is None:
-        builtins = {}
-    delta = set(statements).intersection(set(builtins))
+def eval_sort(statements: dict, names: set):
+    """Figures out the order in which statements should be evaluated"""
+    names = set(names)
+    dependencies = {k: v.required for k, v in statements.items()}
+    result = []
+    delta = set(dependencies).intersection(names)
     if len(delta) != 0:
-        raise ValueError(f"statements overlap with builtins: {', '.join(map(repr, delta))}")
-    delta = set(names).intersection(set(builtins))
-    if len(delta) != 0:
-        raise ValueError(f"names overlap with builtins: {', '.join(map(repr, delta))}")
-
-    result = names.copy()
-    results_and_builtins = {**result, **builtins}
-    statements = statements.copy()
+        raise ValueError(f"names and statements overlap: {', '.join(delta)}")
 
     while True:
-        leave = True
-        # iterate over programs to figure out which ones can be evaluated
         transaction = []
-        for k, v in statements.items():
-            if len(v.names_missing(results_and_builtins)) == 0:
-                transaction.append(k)
-                result[k] = results_and_builtins[k] = v.eval(results_and_builtins)
-                leave = False
-        if leave:
-            if len(statements) > 0:
+        for name, depends_on in dependencies.items():
+            if len(depends_on - names) == 0:
+                transaction.append(name)
+                names.add(name)
+                result.append(statements[name])
+        if len(transaction) == 0:
+            if len(dependencies) > 0:
                 info = []
-                for v in statements.values():
-                    info.append(f"{v}: missing {', '.join(map(repr, v.names_missing(results_and_builtins)))}")
+                for k, v in dependencies.items():
+                    info.append(f"{statements[k]}: missing {', '.join(map(repr, set(v) - names))}")
                 info = "\n".join(info)
                 raise ValueError(
-                    f"{len(statements)} expressions cannot be evaluated:\n{info}")
+                    f"{len(dependencies)} expressions cannot be evaluated:\n{info}")
             return result
         else:
             for i in transaction:
-                del statements[i]
+                del dependencies[i]
+
+
+def eval_all(statements: list, names: dict):
+    """Evaluates all expressions from the dict"""
+    result = []
+    names = names.copy()
+    for statement in statements:
+        v = statement.eval(names)
+        names[statement.name] = v
+        result.append(v)
+    return result
