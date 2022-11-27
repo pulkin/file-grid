@@ -11,7 +11,8 @@ from pathlib import Path
 from warnings import warn
 
 from .tools import combinations
-from .template import GridFile, Statement
+from .template import EvalBlock
+from .files import GridFile
 
 filename_data = ".grid"
 filename_log = ".grid.log"
@@ -253,7 +254,7 @@ if options.action in ("new", "distribute"):
     statements = {}
     for grid_file in files_grid:
         for chunk in grid_file.chunks:
-            if isinstance(chunk, Statement):
+            if isinstance(chunk, EvalBlock):
                 if chunk.name in statements:
                     raise ValueError(f"duplicate statement {chunk} (also {statements[chunk.name]}")
                 else:
