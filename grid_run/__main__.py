@@ -102,7 +102,9 @@ if options.action in ("new", "distribute"):
             result.append(start * (1 - w) + end * w)
         return result
 
-    from .language import Variable, DelayedExpression
+    builtins = {"range": listRange, "linspace": linspace}
+
+    from .language import Variable
 
     # Language definitions
 
@@ -246,150 +248,96 @@ if options.action in ("new", "distribute"):
     #   Classes
     # ------------------------------------------------------------------
 
-    class InconsistencyException(Exception):
-        pass
+    from .parsing import split_assignment, iter_template_blocks
+    import tempfile
+    from types import FunctionType
 
+    class Statement:
+        def __init__(self, code, name=None, source="<unknown>"):
+            """Represents an expression between {% %}"""
+            self.code = code
+            if name is None:
+                name = str(uuid.uuid4())
+            self.name = name
+            self.source = source
 
-    class Statement(object):
-        """
-        Represents an expression between {% %}.
-        """
-
-        def __init__(self, owner, start, end, expression, id=None):
-            self.file = owner
-            self.start = start
-            self.end = end
-            self.expression = expression
-
-            if id is None or len(id) == 0:
-                self.id = str(uuid.uuid4())
+        @classmethod
+        def from_string(cls, text, debug=True, extra_s=""):
+            name, text = split_assignment(text)
+            if debug:
+                f = tempfile.NamedTemporaryFile('w+')
+                f.write(text)
+                f.seek(0)
+                f_name = f.name
             else:
-                self.id = id
+                f_name = "<string>"
+            code = compile(text, f_name, "eval")
+            return cls(code, name, source=f"{text}{extra_s}")
 
-        def line(self):
-            return sum(1 for x in self.file.__source__[:self.start] if x == '\n')
+        @property
+        def required(self):
+            return set(self.code.co_names)
 
-        def symbolInLine(self):
-            try:
-                return next(i for i, x in enumerate(reversed(self.file.__source__[:self.start])) if x == '\n')
-            except StopIteration:
-                return self.start
+        def names_missing(self, names):
+            return set(self.required) - set(names)
+
+        def eval(self, names):
+            delta = self.names_missing(names)
+            if len(delta) > 0:
+                raise ValueError(f"missing following names: {', '.join(map(repr, delta))}")
+            func = FunctionType(self.code, names)
+            return func()
 
         def __str__(self):
-            return f"Statement(file={repr(self.file.name)}l{self.line() + 1}:{self.symbolInLine() + 1} expression={repr(self.expression)})"
+            return f"{self.name} = {self.source}"
 
-        __repr__ = __str__
-
-        @staticmethod
-        def convert(x):
-
-            if isinstance(x, str):
-                return x
-
-            # Convert to float, int if possible
-            try:
-                if int(x) == x:
-                    return int(x)
-            except ValueError:
-                pass
-
-            try:
-                return float(x)
-            except ValueError:
-                pass
-
-            raise Exception("Internal error: unsupported type {t}".format(t=type(x), ))
-
-        @staticmethod
-        def s2d(s):
-            result = {}
-            for i in s:
-                if i.id in result:
-                    raise InconsistencyException(
-                        "Statements at {g1} and {g2} have the same id '{id}'".format(g1=result[i.id], g2=i, id=i.id, ))
-                result[i.id] = i
-            return result
+        def __repr__(self):
+            return f"Statement({self.__str__()})"
 
 
-    class EscapeStatement(object):
+    class GridFile:
 
-        def __init__(self, owner, start, end, escaped):
-            self.file = owner
-            self.start = start
-            self.end = end
-            self.escaped = escaped
-
-
-    class GridFile(object):
-
-        def __init__(self, s, name=None, floatFormat=".10f"):
-            self.__source__ = s
-            self.__statements__ = []
-            self.__fformatter__ = floatFormat
+        def __init__(self, name, chunks):
             self.name = name
+            self.chunks = chunks
 
-            for i, start, end in GroupStatement.scanString(s):
+        @classmethod
+        def from_text(cls, name, text):
+            itr = iter_template_blocks(text)
+            chunks = []
+            for i in itr:
+                chunks.append(i)
+                try:
+                    chunks.append(Statement.from_string(next(itr), extra_s=f" [defined in {repr(name)}]"))
+                except StopIteration:
+                    pass
+            return cls(name, chunks)
 
-                if "escaped" in dir(i):
-                    self.__statements__.append(EscapeStatement(self, start, end, i.escaped))
-
-                elif "choices" in dir(i):
-                    self.__statements__.append(Statement(self, start, end, i.choices, id=i.id))
-
-                else:
-                    raise Exception("Internal error: unknown parsed element")
-
-            self.__statements__ = sorted(self.__statements__, key=attrgetter('start'))
-
-        def statements(self):
-            return list(i for i in self.__statements__ if isinstance(i, Statement))
+        @classmethod
+        def from_file(cls, f):
+            return cls.from_text(f.name, f.read())
 
         def write(self, stack, f):
-
-            start = 0
-
-            for i in self.__statements__:
-
-                f.write(self.__source__[start:i.start])
-
-                if isinstance(i, EscapeStatement):
-                    chunk = i.escaped
-
-                elif isinstance(i, Statement):
-                    try:
-                        chunk = stack[i.id]
-                    except KeyError:
-                        chunk = self.__source__[i.start:i.end]
-                        warn("Expression named '{name}' at {st} could not be evaluated and will be ignored".format(st=i,
-                            name=i.id, ))
-                        logging.warn(
-                            "Expression named '{name}' at {st} could not be evaluated and will be ignored".format(st=i,
-                                name=i.id, ))
-
+            for chunk in self.chunks:
                 if isinstance(chunk, str):
                     f.write(chunk)
-                elif isinstance(chunk, float):
-                    f.write(("{0:" + self.__fformatter__ + "}").format(chunk))
-                elif isinstance(chunk, int):
-                    f.write("{0:d}".format(chunk))
+                elif isinstance(chunk, Statement):
+                    f.write(str(stack[chunk.name]))  # TODO: proper formatting
                 else:
-                    raise Exception(f"Internal error occurred: type of {chunk} is {type(chunk)}")
-
-                start = i.end
-
-            f.write(self.__source__[start:])
+                    raise NotImplementedError(f"unknown {chunk=}")
 
         def is_trivial(self):
-            return len(self.statements()) == 0
+            for chunk in self.chunks:
+                if not isinstance(chunk, str):
+                    return False
+            return True
 
-        def __str__(self):
-            return super(GridFile, self).__str__() if self.name is None else self.name
-
+        def __repr__(self):
+            return f"GridFile(name={repr(self.name)}, chunks=[{len(self.chunks)} chunks])"
 
     def combinations(n):
         keys = n.keys()
-        values = list(i.expression for i in n.values())
-        for i in product(*values):
+        for i in product(*n.values()):
             yield dict(zip(keys, i))
 
 
@@ -512,13 +460,13 @@ if options.action in ("new", "distribute"):
 
         for i in os.listdir('.'):
             if os.path.isfile(i) and i not in files_static:
-                try:
-                    with open(i, 'r') as f:
-                        if not GridFile(f.read()).is_trivial():
-                            logging.info("  {name}".format(name=i))
-                            files.add(i)
-                except:
-                    logging.exception("Failed to read {name}".format(name=i))
+                logging.info(f"  {i}")
+                with open(i, 'r') as f:
+                    if GridFile.from_file(f).is_trivial():
+                        logging.info("    does not contain templates")
+                    else:
+                        logging.info("    template file")
+                        files.add(i)
 
         if len(files) == 0:
             print("No grid-formatted files found in this folder")
@@ -536,7 +484,7 @@ if options.action in ("new", "distribute"):
     for f in files:
         try:
             with open(f, 'r') as fl:
-                files_grid.append(GridFile(fl.read(), name=f))
+                files_grid.append(GridFile.from_file(fl))
         except IOError as e:
             print(e)
             logging.exception("Error during reading the file {name}".format(name=f))
@@ -546,48 +494,38 @@ if options.action in ("new", "distribute"):
     # Collect all statements into dict
     logging.info("Processing grid-formatted files")
 
-    statements = []
-    for f in files_grid:
-        statements = statements + f.statements()
-
-    try:
-        statements = Statement.s2d(statements)
-    except InconsistencyException as e:
-        print(e)
-        logging.exception(str(e))
-        sys.exit(1)
+    statements = {}
+    for grid_file in files_grid:
+        for chunk in grid_file.chunks:
+            if isinstance(chunk, Statement):
+                if chunk.name in statements:
+                    raise ValueError(f"duplicate statement {chunk} (also {statements[chunk.name]}")
+                else:
+                    statements[chunk.name] = chunk
 
     # Split statements by type
     total = 1
-    statements_const = {}
-    statements_fix = {}
-    statements_dep = {}
+    statements_core = {}
+    statements_dependent = {}
 
-    for k, v in statements.items():
-        expr = v.expression
-
-        if isinstance(expr, (int, float, str)):
-            logging.info(f"  {k} = {expr} (const)")
-            statements_const[k] = v
-
-        elif "__len__" in dir(expr):
-            logging.info(f"  {k} = {expr} ({len(expr)} choices)")
-            statements_fix[k] = v
-            total = total * len(v.expression)
+    for name, statement in statements.items():
+        logging.info(repr(statement))
+        if len(statement.names_missing(builtins)) == 0:
+            logging.info("  core, evaluating ...")
+            result = statement.eval(builtins)
+            if "__len__" not in dir(result):
+                result = [result]
+            logging.info(f"  result: {result} (len={len(result)})")
+            total = total * len(result)
             if total > 1e6:
-                print("Grid size is too large (more than a million)")
-                logging.error("Grid size exceeds a million")
-                sys.exit(1)
-
-        elif "evaluate" in dir(expr):
-            logging.info(f"  {k} = {v} (expression)")
-            statements_dep[k] = v
+                raise RuntimeError(f"grid size is too large: {total}")
+            statements_core[name] = result
 
         else:
-            raise Exception(f"Internal error: unknown expression {expr} {type(expr)=}")
-    logging.info(
-        "Total: {fixed} fixed statement(s) ({comb} combination(s)), and {dep} dependent statement(s)".format(
-            fixed=len(statements_fix), dep=len(statements_dep), comb=total, ))
+            logging.info(f"  depends on: {', '.join(map(repr, statement.required))}")
+            statements_dependent[name] = statement
+    logging.info(f"Total: {len(statements_core)} core statement(s) ({total} combination(s)), "
+                 f"{len(statements_dependent)} dependent statement(s)")
 
     # Read previous run
     if options.c or options.action == "distribute":
@@ -612,18 +550,18 @@ if options.action in ("new", "distribute"):
     #   New
     # ------------------------------------------------------------------
 
+    from .algorithm import eval_all
     if options.action == "new":
-        if len(statements_fix) == 0:
+        if len(statements_core) == 0:
             warn(f"No fixed groups found")
 
         # Iterate over possible combinations and write a grid
-        for stack in combinations(statements_fix):
+        for stack in combinations(statements_core):
             scratch = folder_name(index)
             stack["__grid_folder_name__"] = scratch
             stack["__grid_id__"] = index
-            stack.update({k: v.expression for k, v in statements_const.items()})
 
-            DelayedExpression.evaluateToStack(stack, statements_dep, attr="expression", require=True)
+            stack = eval_all(statements_dependent, stack, builtins)
             grid_state["grid"][scratch] = {"stack": stack}
             write_grid(scratch, stack, files_static, files_grid)
             index += 1
@@ -638,18 +576,18 @@ if options.action in ("new", "distribute"):
 
     elif options.action == "distribute":
 
-        if len(statements_dep) == 0:
-            warn("No dependent statements found. The file(s) will be distributed as-is.")
+        if len(statements_dependent) == 0:
+            warn("No dependent statements found. File(s) will be distributed as-is.")
 
         logging.info(f"Distributing files into {len(grid_state)} folders")
         exceptions = []
         for k, v in grid_state["grid"].items():
-            DelayedExpression.evaluateToStack(v["stack"], statements_dep, attr="expression")
+            stack = eval_all(statements_dependent, v["stack"])
             if not Path(k).is_dir():
                 logging.exception(f"Grid folder {k} does not exist")
                 exceptions.append(FileNotFoundError(f"No such file or directory: {repr(k)}"))
             else:
-                write_grid(k, v["stack"], files_static, files_grid)
+                write_grid(k, stack, files_static, files_grid)
         if len(exceptions) > 0:
             raise exceptions[-1]
 

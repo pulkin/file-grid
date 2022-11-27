@@ -235,9 +235,9 @@ def test_linspace(grid_script):
     assert output == ""
     assert read_folder(root) == {
         **base,
-        "grid0/file_with_linspace": "l=5.0000000000",
-        "grid1/file_with_linspace": "l=7.5000000000",
-        "grid2/file_with_linspace": "l=10.0000000000",
+        "grid0/file_with_linspace": "l=5.0",
+        "grid1/file_with_linspace": "l=7.5",
+        "grid2/file_with_linspace": "l=10.0",
     }
 
 
@@ -261,7 +261,9 @@ def test_loop_dependency(grid_script):
         run_grid(base, grid_script, "new")
     e = e_info.value
     assert e.returncode == 1
-    assert e.stderr.endswith("ValueError: 2 expressions cannot be evaluated: a, b\n")
+    assert e.stderr.endswith("2 expressions cannot be evaluated:\n"
+                             "a = b [defined in \'file_with_dependency\']: missing \'b\'\n"
+                             "b = 2 * a [defined in \'file_with_dependency\']: missing \'a\'\n")
     assert e.stdout == ""
 
 
