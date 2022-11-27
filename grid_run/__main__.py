@@ -12,7 +12,7 @@ from warnings import warn
 
 from .tools import combinations
 from .template import EvalBlock
-from .files import GridFile
+from .files import Template
 
 filename_data = ".grid"
 filename_log = ".grid.log"
@@ -219,7 +219,7 @@ if options.action in ("new", "distribute"):
             if os.path.isfile(i) and i not in files_static:
                 logging.info(f"  {i}")
                 with open(i, 'r') as f:
-                    if GridFile.from_file(f).is_trivial():
+                    if Template.from_file(f).is_trivial():
                         logging.info("    does not contain templates")
                     else:
                         logging.info("    template file")
@@ -241,7 +241,7 @@ if options.action in ("new", "distribute"):
     for f in files:
         try:
             with open(f, 'r') as fl:
-                files_grid.append(GridFile.from_file(fl))
+                files_grid.append(Template.from_file(fl))
         except IOError as e:
             print(e)
             logging.exception("Error during reading the file {name}".format(name=f))

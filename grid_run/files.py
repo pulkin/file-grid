@@ -2,7 +2,7 @@ from .template import EvalBlock
 from .parsing import iter_template_blocks
 
 
-class GridFile:
+class Template:
     def __init__(self, name, chunks):
         """A file with multiple statements to evaluate"""
         self.name = name
