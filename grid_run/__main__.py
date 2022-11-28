@@ -24,7 +24,6 @@ parser.add_argument("-f", "--files", nargs="+", help="files to be processed", me
 parser.add_argument("-t", "--static-files", nargs="+", help="files to be copied", metavar="FILENAME")
 parser.add_argument("-n", "--name", help="grid folder naming pattern", metavar="STRING")
 parser.add_argument("-g", "--target", help="target tolerance for optimization", metavar="FLOAT", type=float)
-parser.add_argument("-c", action='store_true', help="continue optimization without removing existing grid state")
 parser.add_argument("action", help="action to perform", choices=["new", "run", "cleanup", "distribute"])
 parser.add_argument("command", nargs="*", help="command to execute for 'run' action")
 
@@ -77,7 +76,7 @@ if options.action in ("new", "distribute"):
             sys.exit(1)
 
     else:
-        if os.path.exists(filename_data) and not options.c:
+        if os.path.exists(filename_data):
             print(
                 "The grid is already present in this folder. Use 'grid cleanup' to cleanup previous run or -c to continue previous run.")
             logging.error("Previous run found, exiting")
@@ -290,7 +289,7 @@ if options.action in ("new", "distribute"):
                  f"{len(statements_dependent)} dependent statement(s)")
 
     # Read previous run
-    if options.c or options.action == "distribute":
+    if options.action == "distribute":
         # TODO: figure out what "continue" means
         grid_state = get_grid_state()
         logging.info("Continue with previous {n} instances".format(n=len(grid_state["grid"])))
