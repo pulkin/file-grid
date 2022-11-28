@@ -14,6 +14,7 @@ from .algorithm import eval_sort, eval_all
 from .tools import combinations
 from .template import EvalBlock, Template
 from .grid_builtins import builtins
+from .files import match_files, match_template_files
 
 filename_data = ".grid"
 filename_log = ".grid.log"
@@ -22,7 +23,7 @@ logging.basicConfig(filename=filename_log, filemode="w", level=logging.INFO)
 
 parser = argparse.ArgumentParser(description="Creates an array [grid] of similar jobs and executes [submits] them")
 parser.add_argument("-f", "--files", nargs="+", help="files to be processed", metavar="FILENAME")
-parser.add_argument("-t", "--static-files", nargs="+", help="files to be copied", metavar="FILENAME")
+parser.add_argument("-t", "--static", nargs="+", help="files to be copied", metavar="FILENAME")
 parser.add_argument("-n", "--name", help="grid folder naming pattern", metavar="STRING")
 parser.add_argument("-g", "--target", help="target tolerance for optimization", metavar="FLOAT", type=float)
 parser.add_argument("action", help="action to perform", choices=["new", "run", "cleanup", "distribute"])
@@ -64,8 +65,8 @@ if options.action in ("new", "distribute"):
 
     # Defaults
 
-    if not options.static_files:
-        options.static_files = []
+    if not options.static:
+        options.static = []
 
     if not options.name:
         options.name = 'grid%d'
@@ -156,82 +157,23 @@ if options.action in ("new", "distribute"):
 
     # Match static items
     logging.info("Matching static part")
-
-    files_static = set()
-    for i in options.static_files:
-
-        new = glob.glob(i)
-        if len(new) == 0:
-            print("File '{pattern}' not found or pattern matched 0 files".format(pattern=i))
-            logging.error("File '{pattern}' provided but matched 0 files")
-            sys.exit(1)
-
-        for f in new:
-            logging.info("  {name}".format(name=f))
-
-        files_static.update(new)
-
+    files_static = match_files(options.static, allow_empty=True)
     logging.info("Total: {n} items".format(n=len(files_static)))
-
-    files = set()
 
     if options.files or options.action == "distribute":
 
         # Match files
-        logging.info("The files are provided explicitly")
-
-        file_list = options.command if options.action == "distribute" else options.files
-        for i in file_list:
-
-            new = set(glob.glob(i))
-            new.difference_update(files_static)
-            if len(new) == 0:
-                print("File '{pattern}' not found or pattern matched 0 files"
-                      " or all files declared as 'static'".format(pattern=i))
-                logging.error("No grid files provided")
-                sys.exit(1)
-
-            files.update(new)
-        for f in files:
-            logging.info("  {name}".format(name=f))
+        logging.info("Files provided explicitly")
+        files_grid = match_template_files(options.command if options.action == "distribute" else options.files,
+                                          exclude=files_static)
 
     else:
 
         # Find files, default behavior
         logging.info("Searching for grid files in current folder")
+        files_grid = match_template_files(["*"], exclude=files_static)
 
-        for i in os.listdir('.'):
-            if os.path.isfile(i) and i not in files_static:
-                logging.info(f"  {i}")
-                with open(i, 'r') as f:
-                    if Template.from_file(f).is_trivial():
-                        logging.info("    does not contain templates")
-                    else:
-                        logging.info("    template file")
-                        files.add(i)
-
-        if len(files) == 0:
-            print("No grid-formatted files found in this folder")
-            logging.error("No grid files found in . folder")
-            sys.exit(1)
-
-    logging.info("Total: {n} files".format(n=len(files)))
-
-    files_static = sorted(files_static)
-    files = sorted(files)
-
-    # Read files
-
-    files_grid = []
-    for f in files:
-        try:
-            with open(f, 'r') as fl:
-                files_grid.append(Template.from_file(fl))
-        except IOError as e:
-            print(e)
-            logging.exception("Error during reading the file {name}".format(name=f))
-            sys.exit(1)
-    logging.info("All files have been successfully read")
+    logging.info(f"Total: {len(files_grid)} files")
 
     # Collect all statements into dict
     logging.info("Processing grid-formatted files")
@@ -354,7 +296,7 @@ if options.action in ("new", "distribute"):
 # ----------------------------------------------------------------------
 
 elif options.action == "run":
-    if options.files or options.static_files or options.name or options.target:
+    if options.files or options.static or options.name or options.target:
         parser.error(f"-f, --files, -t, --static-files, -n, --name, -g, --target options "
                      f"are irrelevant to {repr(options.action)}")
     if len(options.command) == 0:
@@ -380,7 +322,7 @@ elif options.action == "run":
 # ----------------------------------------------------------------------
 
 elif options.action == "cleanup":
-    if options.files or options.static_files or options.name or options.target:
+    if options.files or options.static or options.name or options.target:
         parser.error(f"-f, --files, -t, --static-files, -n, --name, -g, --target options "
                      f"are irrelevant to {repr(options.action)}")
 

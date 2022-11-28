@@ -61,8 +61,9 @@ def test_raise_empty(grid_script, files):
         run_grid(files, grid_script, "new")
     e = e_info.value
     assert e.returncode == 1
-    assert e.stderr == ""
-    assert e.stdout == "No grid-formatted files found in this folder\n"
+    assert e.stderr.endswith(f"pattern '*' in '.' matched 0 files (matched total: {len(files) + 1}, "
+                             f"files: {len(files)})\n")
+    assert e.stdout == ""
 
 
 def test_raise_non_existent(grid_script):
@@ -275,7 +276,7 @@ def test_explicit_files(grid_script):
         "file_exclude": "{% [3, 4] %}",
         "file_exclude_static": "def",
     }
-    root, output = run_grid(base, grid_script, "new", "--files", "file_include", "file_include_static")
+    root, output = run_grid(base, grid_script, "new", "--files", "file_include", "--static", "file_include_static")
     assert output == ""
     assert read_folder(root) == {
         **base,
@@ -292,7 +293,7 @@ def test_static_files(grid_script):
         "file_with_list": "{% [1, 2] %}",
         "file_include_static": "abc {% [3, 4] %}",
     }
-    root, output = run_grid(base, grid_script, "new", "--static-files", "file_include_static")
+    root, output = run_grid(base, grid_script, "new", "--static", "file_include_static")
     assert output == ""
     assert read_folder(root) == {
         **base,
