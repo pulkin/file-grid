@@ -13,6 +13,7 @@ from warnings import warn
 from .algorithm import eval_sort, eval_all
 from .tools import combinations
 from .template import EvalBlock, Template
+from .grid_builtins import builtins
 
 filename_data = ".grid"
 filename_log = ".grid.log"
@@ -81,21 +82,6 @@ if options.action in ("new", "distribute"):
                 "The grid is already present in this folder. Use 'grid cleanup' to cleanup previous run or -c to continue previous run.")
             logging.error("Previous run found, exiting")
             sys.exit(1)
-
-    # Drivers
-
-    def listRange(*args):
-        return list(range(*args))
-
-
-    def linspace(start, end, steps):
-        result = []
-        for i in range(steps):
-            w = 1.0 * i / (steps - 1)
-            result.append(start * (1 - w) + end * w)
-        return result
-
-    builtins = {"range": listRange, "linspace": linspace}
 
     def copy(s, d, dry=False):
 
@@ -290,7 +276,6 @@ if options.action in ("new", "distribute"):
 
     # Read previous run
     if options.action == "distribute":
-        # TODO: figure out what "continue" means
         grid_state = get_grid_state()
         logging.info("Continue with previous {n} instances".format(n=len(grid_state["grid"])))
 
