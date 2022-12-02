@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import argparse
-import glob
 import json
 import logging
 import os
@@ -12,12 +11,13 @@ from warnings import warn
 
 from .algorithm import eval_sort, eval_all
 from .tools import combinations
-from .template import EvalBlock, Template
+from .template import EvalBlock
 from .grid_builtins import builtins
-from .files import match_files, match_template_files
+from .files import match_files, match_template_files, write_grid
 
 filename_data = ".grid"
 filename_log = ".grid.log"
+root = "."
 
 logging.basicConfig(filename=filename_log, filemode="w", level=logging.INFO)
 
@@ -84,73 +84,6 @@ if options.action in ("new", "distribute"):
             logging.error("Previous run found, exiting")
             sys.exit(1)
 
-    def copy(s, d, dry=False):
-
-        sh, st = os.path.split(s)
-
-        if len(sh) > 0:
-            d = os.path.join(d, sh)
-
-        if not os.path.isdir(d):
-            os.makedirs(d)
-
-        if not dry:
-
-            if os.path.isdir(s):
-                shutil.copytree(s, os.path.join(d, st))
-
-            elif os.path.isfile(s):
-                shutil.copy2(s, d)
-
-
-    def write_grid(directory_name, stack, files_static, files_grid):
-
-        logging.info("Writing stack {stack} into {file}".format(stack=stack, file=directory_name))
-
-        # Copy static
-        logging.info("  Copying static part")
-
-        for s in files_static:
-            try:
-                copy(s, directory_name)
-                logging.info("    copying '{name}'".format(name=s))
-            except Exception as e:
-                print(e)
-                logging.exception("Error while copying {name}".format(name=s))
-                sys.exit(1)
-
-        # Copy grid
-        logging.info("  Copying grid-formatted")
-
-        for f in files_grid:
-
-            try:
-                copy(f.name, directory_name, dry=True)
-            except Exception as e:
-                print(e)
-                logging.exception("Error while creating directory tree for {file}".format(file=f.name))
-                sys.exit(1)
-
-            joined = os.path.join(directory_name, f.name)
-
-            try:
-                with open(joined, "w") as ff:
-                    f.write(stack, ff)
-            except Exception as e:
-                print(e)
-                logging.exception("Error while writing grid-formatted file {file}".format(file=f.name))
-                sys.exit(1)
-
-            try:
-                shutil.copystat(f.name, joined)
-            except Exception as e:
-                print(e)
-                logging.exception("Error while assigning file attributes")
-                sys.exit(1)
-
-            logging.info("    copying '{name}'".format(name=f.name))
-
-
     # ------------------------------------------------------------------
     #   Common part
     # ------------------------------------------------------------------
@@ -158,21 +91,23 @@ if options.action in ("new", "distribute"):
     # Match static items
     logging.info("Matching static part")
     files_static = match_files(options.static, allow_empty=True)
+    for i in files_static:
+        logging.info(f"  {str(i)}")
     logging.info("Total: {n} items".format(n=len(files_static)))
 
     if options.files or options.action == "distribute":
-
         # Match files
         logging.info("Files provided explicitly")
         files_grid = match_template_files(options.command if options.action == "distribute" else options.files,
                                           exclude=files_static)
 
     else:
-
         # Find files, default behavior
         logging.info("Searching for grid files in current folder")
         files_grid = match_template_files(["*"], exclude=files_static)
 
+    for i in files_grid:
+        logging.info(f"  {i}")
     logging.info(f"Total: {len(files_grid)} files")
 
     # Collect all statements into dict
@@ -258,7 +193,8 @@ if options.action in ("new", "distribute"):
             values = eval_all(ordered_statements, {**stack, **builtins})
             stack.update({statement.name: v for statement, v in zip(ordered_statements, values)})
             grid_state["grid"][scratch] = {"stack": stack}
-            write_grid(scratch, stack, files_static, files_grid)
+            logging.info(f"  composing {scratch}")
+            write_grid(scratch, stack, files_static, files_grid, root)
             index += 1
 
         # Save state
@@ -287,7 +223,7 @@ if options.action in ("new", "distribute"):
                 stack = v["stack"]
                 values = eval_all(ordered_statements, v["stack"])
                 stack.update({statement.name: v for statement, v in zip(ordered_statements, values)})
-                write_grid(k, stack, files_static, files_grid)
+                write_grid(k, stack, files_static, files_grid, root)
         if len(exceptions) > 0:
             raise exceptions[-1]
 

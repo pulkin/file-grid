@@ -1,7 +1,8 @@
-from .parsing import split_assignment, iter_template_blocks
 import tempfile
 from types import FunctionType
 import uuid
+
+from .parsing import split_assignment, iter_template_blocks
 
 
 class EvalBlock:

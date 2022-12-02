@@ -1,10 +1,13 @@
 from pathlib import Path
 from functools import partial
+import os
+import shutil
 
 from .template import Template
 
 
 def match_files(patterns, root=".", apply=None, exclude=None, recursive=False, hidden=False, allow_empty=False):
+    """Collects files matching a list of patterns"""
     if len(patterns) == 0 and not allow_empty:
         raise ValueError(f"no patterns provided")
     root = Path(root)
@@ -47,3 +50,24 @@ def _maybe_template(candidate):
 
 
 match_template_files = partial(match_files, apply=_maybe_template)
+
+
+def write_grid(directory_name, stack, files_static, files_grid, root):
+    """Writes grid folder contents"""
+    root = Path(root)
+
+    def _translate_path(p):
+        return root / directory_name / Path(p).relative_to(root)
+
+    for src in files_static:
+        dst = _translate_path(src)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+
+    for f in files_grid:
+        src = f.name
+        dst = _translate_path(src)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        with open(dst, "w") as ff:
+            f.write(stack, ff)
+        shutil.copystat(src, dst)
