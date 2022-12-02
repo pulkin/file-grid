@@ -25,7 +25,6 @@ parser = argparse.ArgumentParser(description="Creates an array [grid] of similar
 parser.add_argument("-f", "--files", nargs="+", help="files to be processed", metavar="FILENAME")
 parser.add_argument("-t", "--static", nargs="+", help="files to be copied", metavar="FILENAME")
 parser.add_argument("-n", "--name", help="grid folder naming pattern", metavar="STRING")
-parser.add_argument("-g", "--target", help="target tolerance for optimization", metavar="FLOAT", type=float)
 parser.add_argument("-r", "--recursive", help="visit sub-folders when matching file names", action="store_true")
 parser.add_argument("action", help="action to perform", choices=["new", "run", "cleanup", "distribute"])
 parser.add_argument("command", nargs="*", help="command to execute for 'run' action")
@@ -233,8 +232,8 @@ if options.action in ("new", "distribute"):
 # ----------------------------------------------------------------------
 
 elif options.action == "run":
-    if options.files or options.static or options.name or options.target:
-        parser.error(f"-f, --files, -t, --static-files, -n, --name, -g, --target options "
+    if options.files or options.static or options.name:
+        parser.error(f"-f, --files, -t, --static-files, -n, --name, options "
                      f"are irrelevant to {repr(options.action)}")
     if len(options.command) == 0:
         parser.error("missing command to run")
@@ -259,8 +258,8 @@ elif options.action == "run":
 # ----------------------------------------------------------------------
 
 elif options.action == "cleanup":
-    if options.files or options.static or options.name or options.target:
-        parser.error(f"-f, --files, -t, --static-files, -n, --name, -g, --target options "
+    if options.files or options.static or options.name:
+        parser.error(f"-f, --files, -t, --static-files, -n, --name options "
                      f"are irrelevant to {repr(options.action)}")
 
     current_state = get_grid_state()
