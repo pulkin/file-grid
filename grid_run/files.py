@@ -1,6 +1,5 @@
 from pathlib import Path
 from functools import partial
-import os
 import shutil
 
 from .template import Template

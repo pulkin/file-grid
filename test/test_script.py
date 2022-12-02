@@ -322,3 +322,27 @@ def test_name(grid_script):
     assert output == ""
     assert read_folder(root, exclude=(".grid.log",)) == base
     yield
+
+
+def test_recursive(grid_script):
+    """Prefix option"""
+    base = {"sub/file_with_list": "{% [1, 2, 'a'] %}"}
+    root, output = run_grid(base, grid_script, "new", "-r")
+    assert output == ""
+    assert read_folder(root) == {
+        **base,
+        "grid0/sub/file_with_list": "1",
+        "grid1/sub/file_with_list": "2",
+        "grid2/sub/file_with_list": "a",
+    }
+
+
+def test_non_recursive(grid_script):
+    """Prefix option"""
+    base = {"sub/file_with_list": "{% [1, 2, 'a'] %}"}
+    with pytest.raises(CalledProcessError) as e_info:
+        run_grid(base, grid_script, "new")
+    e = e_info.value
+    assert e.returncode == 1
+    assert e.stderr.endswith("pattern '*' in '.' matched 0 files (matched total: 2, files: 0)\n")
+    assert e.stdout == ""

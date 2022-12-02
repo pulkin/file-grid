@@ -26,6 +26,7 @@ parser.add_argument("-f", "--files", nargs="+", help="files to be processed", me
 parser.add_argument("-t", "--static", nargs="+", help="files to be copied", metavar="FILENAME")
 parser.add_argument("-n", "--name", help="grid folder naming pattern", metavar="STRING")
 parser.add_argument("-g", "--target", help="target tolerance for optimization", metavar="FLOAT", type=float)
+parser.add_argument("-r", "--recursive", help="visit sub-folders when matching file names", action="store_true")
 parser.add_argument("action", help="action to perform", choices=["new", "run", "cleanup", "distribute"])
 parser.add_argument("command", nargs="*", help="command to execute for 'run' action")
 
@@ -90,7 +91,7 @@ if options.action in ("new", "distribute"):
 
     # Match static items
     logging.info("Matching static part")
-    files_static = match_files(options.static, allow_empty=True)
+    files_static = match_files(options.static, allow_empty=True, recursive=options.recursive)
     for i in files_static:
         logging.info(f"  {str(i)}")
     logging.info("Total: {n} items".format(n=len(files_static)))
@@ -99,12 +100,12 @@ if options.action in ("new", "distribute"):
         # Match files
         logging.info("Files provided explicitly")
         files_grid = match_template_files(options.command if options.action == "distribute" else options.files,
-                                          exclude=files_static)
+                                          exclude=files_static, recursive=options.recursive)
 
     else:
         # Find files, default behavior
         logging.info("Searching for grid files in current folder")
-        files_grid = match_template_files(["*"], exclude=files_static)
+        files_grid = match_template_files(["*"], exclude=files_static, recursive=options.recursive)
 
     for i in files_grid:
         logging.info(f"  {i}")
