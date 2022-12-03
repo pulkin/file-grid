@@ -15,8 +15,6 @@ from .template import EvalBlock
 from .grid_builtins import builtins
 from .files import match_files, match_template_files, write_grid
 
-root = "."
-
 parser = argparse.ArgumentParser(description="Creates an array [grid] of similar jobs and executes [submits] them")
 parser.add_argument("-f", "--files", nargs="+", help="files to be processed", metavar="FILENAME")
 parser.add_argument("-t", "--static", nargs="+", help="files to be copied", metavar="FILENAME")
@@ -25,6 +23,7 @@ parser.add_argument("-r", "--recursive", help="visit sub-folders when matching f
 parser.add_argument("-m", "--max", help="maximum allowed grid size", metavar="N", default=10_000)
 parser.add_argument("-s", "--settings", help="setting file name", metavar="FILE", default=".grid")
 parser.add_argument("-l", "--log", help="log file name", metavar="FILE", default=".grid.log")
+parser.add_argument("--root", help="root folder for scanning/placing grid files", default=".")
 parser.add_argument("action", help="action to perform", choices=["new", "run", "cleanup", "distribute"])
 parser.add_argument("command", nargs="*", help="command to execute for 'run' action")
 
@@ -183,7 +182,7 @@ if options.action in ("new", "distribute"):
             stack.update({statement.name: v for statement, v in zip(ordered_statements, values)})
             grid_state["grid"][scratch] = {"stack": stack}
             logging.info(f"  composing {scratch}")
-            write_grid(scratch, stack, files_static, files_grid, root)
+            write_grid(scratch, stack, files_static, files_grid, options.root)
             index += 1
 
         # Save state
@@ -212,7 +211,7 @@ if options.action in ("new", "distribute"):
                 stack = v["stack"]
                 values = eval_all(ordered_statements, v["stack"])
                 stack.update({statement.name: v for statement, v in zip(ordered_statements, values)})
-                write_grid(k, stack, files_static, files_grid, root)
+                write_grid(k, stack, files_static, files_grid, options.root)
         if len(exceptions) > 0:
             raise exceptions[-1]
 
