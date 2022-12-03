@@ -15,7 +15,6 @@ from .template import EvalBlock
 from .grid_builtins import builtins
 from .files import match_files, match_template_files, write_grid
 
-filename_data = ".grid"
 filename_log = ".grid.log"
 root = "."
 
@@ -26,6 +25,7 @@ parser.add_argument("-f", "--files", nargs="+", help="files to be processed", me
 parser.add_argument("-t", "--static", nargs="+", help="files to be copied", metavar="FILENAME")
 parser.add_argument("-n", "--name", help="grid folder naming pattern", metavar="STRING")
 parser.add_argument("-r", "--recursive", help="visit sub-folders when matching file names", action="store_true")
+parser.add_argument("-s", "--settings", help="setting file name", metavar="FILE", default=".grid")
 parser.add_argument("action", help="action to perform", choices=["new", "run", "cleanup", "distribute"])
 parser.add_argument("command", nargs="*", help="command to execute for 'run' action")
 
@@ -263,7 +263,7 @@ elif options.action == "cleanup":
     if len(exceptions):
         logging.error(f"{len(exceptions)} exceptions occurred while removing grid folders")
     logging.info("Removing the data file")
-    os.remove(filename_data)
+    os.remove(options.settings)
     if len(exceptions):
         raise exceptions[-1]
 
