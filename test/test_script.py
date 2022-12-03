@@ -66,10 +66,20 @@ def test_raise_empty(grid_script, files):
     assert e.stdout == ""
 
 
-def test_raise_non_existent(grid_script):
+def test_raise_non_existent_run(grid_script):
     """Dummy setup with a single text file"""
     with pytest.raises(CalledProcessError) as e_info:
         run_grid({}, grid_script, "run", "something")
+    e = e_info.value
+    assert e.returncode == 1
+    assert e.stderr.endswith("Grid file does not exit: '.grid'\n")
+    assert e.stdout == ""
+
+
+def test_raise_non_existent_distribute(grid_script):
+    """Dummy setup with a single text file"""
+    with pytest.raises(CalledProcessError) as e_info:
+        run_grid({}, grid_script, "distribute", "something")
     e = e_info.value
     assert e.returncode == 1
     assert e.stderr.endswith("Grid file does not exit: '.grid'\n")
