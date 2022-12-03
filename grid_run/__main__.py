@@ -25,6 +25,7 @@ parser.add_argument("-f", "--files", nargs="+", help="files to be processed", me
 parser.add_argument("-t", "--static", nargs="+", help="files to be copied", metavar="FILENAME")
 parser.add_argument("-n", "--name", help="grid folder naming pattern", metavar="STRING")
 parser.add_argument("-r", "--recursive", help="visit sub-folders when matching file names", action="store_true")
+parser.add_argument("-m", "--max", help="maximum allowed grid size", metavar="N", default=10_000)
 parser.add_argument("-s", "--settings", help="setting file name", metavar="FILE", default=".grid")
 parser.add_argument("action", help="action to perform", choices=["new", "run", "cleanup", "distribute"])
 parser.add_argument("command", nargs="*", help="command to execute for 'run' action")
@@ -132,7 +133,7 @@ if options.action in ("new", "distribute"):
                 result = [result]
             logging.info(f"  result: {result} (len={len(result)})")
             total = total * len(result)
-            if total > 1e6:
+            if total > options.max:
                 raise RuntimeError(f"grid size is too large: {total}")
             statements_core[name] = result
 
