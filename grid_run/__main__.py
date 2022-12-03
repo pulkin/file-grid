@@ -71,19 +71,6 @@ if options.action in ("new", "distribute"):
     if not options.name:
         options.name = 'grid%d'
 
-    if options.action == "distribute":
-        if not os.path.exists(filename_data):
-            print("No existing grid found.")
-            logging.error("Grid does not exist")
-            sys.exit(1)
-
-    else:
-        if os.path.exists(filename_data):
-            print(
-                "The grid is already present in this folder. Use 'grid cleanup' to cleanup previous run or -c to continue previous run.")
-            logging.error("Previous run found, exiting")
-            sys.exit(1)
-
     # ------------------------------------------------------------------
     #   Common part
     # ------------------------------------------------------------------
