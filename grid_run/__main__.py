@@ -33,22 +33,22 @@ options = parser.parse_args()
 logging.info(' '.join(sys.argv))
 
 
-def get_grid_state():
+def get_grid_state(options):
     """Reads the grid state"""
     try:
-        with open(filename_data, "r") as f:
+        with open(options.settings, "r") as f:
             return json.load(f)
     except FileNotFoundError as e:
         raise FileNotFoundError(f"Grid file does not exit: {repr(e.filename)}") from e
 
 
-def save_grid_state(state):
+def save_grid_state(options, state):
     """Saves the grid state"""
-    with open(filename_data, "w") as f:
+    with open(options.settings, "w") as f:
         json.dump(state, f, indent=4)
 
 
-def folder_name(index):
+def folder_name(options, index):
     """Folder name convention"""
     return options.name % index
 
@@ -72,7 +72,7 @@ if options.action in ("new", "distribute"):
         options.name = 'grid%d'
 
     if options.action == "distribute":
-        grid_state = get_grid_state()
+        grid_state = get_grid_state(options)
         logging.info("Continue with previous {n} instances".format(n=len(grid_state["grid"])))
 
     # ------------------------------------------------------------------
@@ -174,7 +174,7 @@ if options.action in ("new", "distribute"):
         ordered_statements = eval_sort(statements_dependent, reserved_names | set(statements_core))
         # Iterate over possible combinations and write a grid
         for stack in combinations(statements_core):
-            scratch = folder_name(index)
+            scratch = folder_name(options, index)
             stack["__grid_folder_name__"] = scratch
             stack["__grid_id__"] = index
 
@@ -186,7 +186,7 @@ if options.action in ("new", "distribute"):
             index += 1
 
         # Save state
-        save_grid_state(grid_state)
+        save_grid_state(options, grid_state)
 
     # ------------------------------------------------------------------
     #   Distribute
@@ -226,7 +226,7 @@ elif options.action == "run":
     if len(options.command) == 0:
         parser.error("missing command to run")
 
-    current_state = get_grid_state()
+    current_state = get_grid_state(options)
     logging.info(f"Executing {' '.join(options.command)} in {len(current_state['grid'])} grid folders")
     exceptions = []
     for cwd in current_state["grid"]:
@@ -250,7 +250,7 @@ elif options.action == "cleanup":
         parser.error(f"-f, --files, -t, --static-files, -n, --name options "
                      f"are irrelevant to {repr(options.action)}")
 
-    current_state = get_grid_state()
+    current_state = get_grid_state(options)
     logging.info("Removing grid folders")
     exceptions = []
     for f in current_state["grid"]:
