@@ -15,10 +15,7 @@ from .template import EvalBlock
 from .grid_builtins import builtins
 from .files import match_files, match_template_files, write_grid
 
-filename_log = ".grid.log"
 root = "."
-
-logging.basicConfig(filename=filename_log, filemode="w", level=logging.INFO)
 
 parser = argparse.ArgumentParser(description="Creates an array [grid] of similar jobs and executes [submits] them")
 parser.add_argument("-f", "--files", nargs="+", help="files to be processed", metavar="FILENAME")
@@ -27,10 +24,13 @@ parser.add_argument("-n", "--name", help="grid folder naming pattern", metavar="
 parser.add_argument("-r", "--recursive", help="visit sub-folders when matching file names", action="store_true")
 parser.add_argument("-m", "--max", help="maximum allowed grid size", metavar="N", default=10_000)
 parser.add_argument("-s", "--settings", help="setting file name", metavar="FILE", default=".grid")
+parser.add_argument("-l", "--log", help="log file name", metavar="FILE", default=".grid.log")
 parser.add_argument("action", help="action to perform", choices=["new", "run", "cleanup", "distribute"])
 parser.add_argument("command", nargs="*", help="command to execute for 'run' action")
 
 options = parser.parse_args()
+
+logging.basicConfig(filename=options.log, filemode="w", level=logging.INFO)
 logging.info(' '.join(sys.argv))
 
 
