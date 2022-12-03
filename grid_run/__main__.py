@@ -71,6 +71,10 @@ if options.action in ("new", "distribute"):
     if not options.name:
         options.name = 'grid%d'
 
+    if options.action == "distribute":
+        grid_state = get_grid_state()
+        logging.info("Continue with previous {n} instances".format(n=len(grid_state["grid"])))
+
     # ------------------------------------------------------------------
     #   Common part
     # ------------------------------------------------------------------
@@ -140,9 +144,6 @@ if options.action in ("new", "distribute"):
 
     # Read previous run
     if options.action == "distribute":
-        grid_state = get_grid_state()
-        logging.info("Continue with previous {n} instances".format(n=len(grid_state["grid"])))
-
         overlap = set(grid_state["names"]).intersection(set(statements))
         if len(overlap) > 0:
             raise ValueError(f"new statement names overlap with previously defined ones: {', '.join(overlap)}")
