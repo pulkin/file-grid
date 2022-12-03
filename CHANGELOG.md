@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - package
+- `grid new -r` to find files and patterns recursively
 
 ### Fixed
 - removed pyparsing and switched to python eval engine
