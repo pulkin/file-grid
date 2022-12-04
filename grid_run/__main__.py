@@ -18,7 +18,7 @@ from .files import match_files, match_template_files, write_grid
 parser = argparse.ArgumentParser(description="Creates an array [grid] of similar jobs and executes [submits] them")
 parser.add_argument("-f", "--files", nargs="+", help="files to be processed", metavar="FILE")
 parser.add_argument("-t", "--static", nargs="+", help="files to be copied", metavar="FILE")
-parser.add_argument("-n", "--name", help="grid folder naming pattern", metavar="PATTERN")
+parser.add_argument("-n", "--name", help="grid folder naming pattern", metavar="PATTERN", default="grid%d")
 parser.add_argument("-r", "--recursive", help="visit sub-folders when matching file names", action="store_true")
 parser.add_argument("-m", "--max", help="maximum allowed grid size", metavar="N", default=10_000)
 parser.add_argument("-s", "--settings", help="setting file name", metavar="FILE", default=".grid")
@@ -67,9 +67,6 @@ if options.action in ("new", "distribute"):
 
     if not options.static:
         options.static = []
-
-    if not options.name:
-        options.name = 'grid%d'
 
     if options.action == "distribute":
         grid_state = get_grid_state(options)
@@ -220,9 +217,6 @@ if options.action in ("new", "distribute"):
 # ----------------------------------------------------------------------
 
 elif options.action == "run":
-    if options.files or options.static or options.name:
-        parser.error(f"-f, --files, -t, --static-files, -n, --name, options "
-                     f"are irrelevant to {repr(options.action)}")
     if len(options.command) == 0:
         parser.error("missing command to run")
 
@@ -246,10 +240,6 @@ elif options.action == "run":
 # ----------------------------------------------------------------------
 
 elif options.action == "cleanup":
-    if options.files or options.static or options.name:
-        parser.error(f"-f, --files, -t, --static-files, -n, --name options "
-                     f"are irrelevant to {repr(options.action)}")
-
     current_state = get_grid_state(options)
     logging.info("Removing grid folders")
     exceptions = []
