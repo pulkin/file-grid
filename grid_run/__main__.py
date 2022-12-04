@@ -53,6 +53,15 @@ def folder_name(options, index):
     return options.name % index
 
 
+def grid_match_static(options):
+    logging.info("Matching static files")
+    result = match_files(options.static, allow_empty=True, recursive=options.recursive)
+    for i in result:
+        logging.info(f"  {str(i)}")
+    logging.info("Total: {n} files".format(n=len(result)))
+    return result
+
+
 # ----------------------------------------------------------------------
 #   New grid, distribute
 # ----------------------------------------------------------------------
@@ -76,12 +85,7 @@ if options.action in ("new", "distribute"):
     #   Common part
     # ------------------------------------------------------------------
 
-    # Match static items
-    logging.info("Matching static part")
-    files_static = match_files(options.static, allow_empty=True, recursive=options.recursive)
-    for i in files_static:
-        logging.info(f"  {str(i)}")
-    logging.info("Total: {n} items".format(n=len(files_static)))
+    files_static = grid_match_static(options)
 
     if options.files or options.action == "distribute":
         # Match files
