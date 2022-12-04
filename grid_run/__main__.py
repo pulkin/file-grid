@@ -16,8 +16,8 @@ from .grid_builtins import builtins
 from .files import match_files, match_template_files, write_grid
 
 parser = argparse.ArgumentParser(description="Creates an array [grid] of similar jobs and executes [submits] them")
-parser.add_argument("-f", "--files", nargs="+", help="files to be processed", metavar="FILE")
-parser.add_argument("-t", "--static", nargs="+", help="files to be copied", metavar="FILE")
+parser.add_argument("-f", "--files", nargs="+", help="files to be processed", metavar="FILE", default=tuple())
+parser.add_argument("-t", "--static", nargs="+", help="files to be copied", metavar="FILE", default=tuple())
 parser.add_argument("-n", "--name", help="grid folder naming pattern", metavar="PATTERN", default="grid%d")
 parser.add_argument("-r", "--recursive", help="visit sub-folders when matching file names", action="store_true")
 parser.add_argument("-m", "--max", help="maximum allowed grid size", metavar="N", default=10_000)
@@ -58,7 +58,23 @@ def grid_match_static(options):
     result = match_files(options.static, allow_empty=True, recursive=options.recursive)
     for i in result:
         logging.info(f"  {str(i)}")
-    logging.info("Total: {n} files".format(n=len(result)))
+    logging.info(f"Total: {len(result)} files")
+    return result
+
+
+def grid_match_templates(options, exclude):
+    logging.info("Matching template files")
+    request = []
+    if options.action == "distribute":
+        request = (*options.files, *options.command)
+    elif options.action == "new":
+        request = options.files
+        if len(request) == 0:
+            request = "*",
+    result = match_template_files(request, recursive=options.recursive, exclude=exclude)
+    for i in result:
+        logging.info(f"  {str(i)}")
+    logging.info(f"Total: {len(result)} files")
     return result
 
 
@@ -86,21 +102,7 @@ if options.action in ("new", "distribute"):
     # ------------------------------------------------------------------
 
     files_static = grid_match_static(options)
-
-    if options.files or options.action == "distribute":
-        # Match files
-        logging.info("Files provided explicitly")
-        files_grid = match_template_files(options.command if options.action == "distribute" else options.files,
-                                          exclude=files_static, recursive=options.recursive)
-
-    else:
-        # Find files, default behavior
-        logging.info("Searching for grid files in current folder")
-        files_grid = match_template_files(["*"], exclude=files_static, recursive=options.recursive)
-
-    for i in files_grid:
-        logging.info(f"  {i}")
-    logging.info(f"Total: {len(files_grid)} files")
+    files_grid = grid_match_templates(options, files_static)
 
     # Collect all statements into dict
     logging.info("Processing grid-formatted files")
