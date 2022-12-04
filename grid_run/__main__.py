@@ -78,6 +78,18 @@ def grid_match_templates(options, exclude):
     return result
 
 
+def grid_collect_statements(files_grid):
+    statements = {}
+    for grid_file in files_grid:
+        for chunk in grid_file.chunks:
+            if isinstance(chunk, EvalBlock):
+                if chunk.name in statements:
+                    raise ValueError(f"duplicate statement {chunk} (also {statements[chunk.name]}")
+                else:
+                    statements[chunk.name] = chunk
+    return statements
+
+
 # ----------------------------------------------------------------------
 #   New grid, distribute
 # ----------------------------------------------------------------------
@@ -103,18 +115,7 @@ if options.action in ("new", "distribute"):
 
     files_static = grid_match_static(options)
     files_grid = grid_match_templates(options, files_static)
-
-    # Collect all statements into dict
-    logging.info("Processing grid-formatted files")
-
-    statements = {}
-    for grid_file in files_grid:
-        for chunk in grid_file.chunks:
-            if isinstance(chunk, EvalBlock):
-                if chunk.name in statements:
-                    raise ValueError(f"duplicate statement {chunk} (also {statements[chunk.name]}")
-                else:
-                    statements[chunk.name] = chunk
+    statements = grid_collect_statements(files_grid)
 
     reserved_names = set(builtins) | {"__grid_folder_name__", "__grid_id__"}
     overlap = set(statements).intersection(reserved_names)
