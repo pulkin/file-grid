@@ -114,7 +114,14 @@ def grid_group_statements(options, statements):
                  f"{len(statements_dependent)} dependent statement(s)")
     if total > options.max:
         raise RuntimeError(f"the total grid size {total} is above threshold {options.max}")
-    return statements_core, statements_dependent
+    return statements_core, statements_dependent, total
+
+
+def grid_check_conflicts(options, *args):
+    for i in range(*args):
+        p = Path(options.name % i)
+        if p.exists():
+            raise RuntimeError(f"file or folder '{str(p)}' already exists")
 
 
 # ----------------------------------------------------------------------
@@ -149,28 +156,20 @@ if options.action in ("new", "distribute"):
     if len(overlap) > 0:
         raise ValueError(f"the following names used in the grid are reserved: {', '.join(overlap)}")
 
-    statements_core, statements_dependent = grid_group_statements(options, statements)
-    total = 1
+    statements_core, statements_dependent, total = grid_group_statements(options, statements)
 
     # Read previous run
     if options.action == "distribute":
         overlap = set(grid_state["names"]).intersection(set(statements))
         if len(overlap) > 0:
             raise ValueError(f"new statement names overlap with previously defined ones: {', '.join(overlap)}")
-    else:
+    elif options.action == "new":
+        grid_check_conflicts(options, total)
         grid_state = {"grid": {}, "names": list(statements)}
+    else:
+        raise NotImplementedError(f"unknown action={options.action}")
 
     index = len(grid_state["grid"])
-
-    # Check if folders already exist
-    # TODO: this checks if there are any folders starting with [former] prefix
-    # for x in glob.glob(options.prefix + "*"):
-    #     if not x in grid_state["grid"]:
-    #         print(
-    #             "File or folder {name} may conflict with the grid. Either remove it or use a different prefix through '--prefix' option.".format(
-    #                 name=x))
-    #         logging.error("{name} already exists".format(name=x))
-    #         sys.exit(1)
 
     # ------------------------------------------------------------------
     #   New

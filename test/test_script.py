@@ -67,7 +67,7 @@ def test_raise_empty(grid_script, files):
 
 
 def test_raise_non_existent_run(grid_script):
-    """Dummy setup with a single text file"""
+    """Empty setup"""
     with pytest.raises(CalledProcessError) as e_info:
         run_grid({}, grid_script, "run", "something")
     e = e_info.value
@@ -83,6 +83,16 @@ def test_raise_non_existent_distribute(grid_script):
     e = e_info.value
     assert e.returncode == 1
     assert e.stderr.endswith("Grid file does not exit: '.grid'\n")
+    assert e.stdout == ""
+
+
+def test_raise_grid_folder_exists(grid_script):
+    """Conflicting folder setup"""
+    with pytest.raises(CalledProcessError) as e_info:
+        run_grid({"some_list": "{% [1, 2, 3] %}", "grid1": ""}, grid_script, "new")
+    e = e_info.value
+    assert e.returncode == 1
+    assert e.stderr.endswith("file or folder 'grid1' already exists\n")
     assert e.stdout == ""
 
 
