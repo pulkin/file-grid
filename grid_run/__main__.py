@@ -20,8 +20,8 @@ from .files import match_files, match_template_files, write_grid
 parser = argparse.ArgumentParser(description="Creates an array [grid] of similar jobs and executes [submits] them")
 parser.add_argument("-f", "--files", nargs="+", help="files to be processed", metavar="FILE", default=tuple())
 parser.add_argument("-t", "--static", nargs="+", help="files to be copied", metavar="FILE", default=tuple())
-parser.add_argument("-n", "--name", help="grid folder naming pattern", metavar="PATTERN", default="grid%d")
 parser.add_argument("-r", "--recursive", help="visit sub-folders when matching file names", action="store_true")
+parser.add_argument("-n", "--name", help="grid folder naming pattern", metavar="PATTERN", default="grid%d")
 parser.add_argument("-m", "--max", help="maximum allowed grid size", metavar="N", default=10_000)
 parser.add_argument("-s", "--settings", help="setting file name", metavar="FILE", default=".grid")
 parser.add_argument("-l", "--log", help="log file name", metavar="FILE", default=".grid.log")
@@ -35,128 +35,142 @@ logging.basicConfig(filename=options.log, filemode="w", level=logging.INFO)
 logging.info(' '.join(sys.argv))
 
 
-def get_grid_state(options):
-    """Reads the grid state"""
-    try:
-        with open(options.settings, "r") as f:
-            return json.load(f)
-    except FileNotFoundError as e:
-        raise FileNotFoundError(f"Grid file does not exit: {repr(e.filename)}") from e
+class GridOptions:
+    def __init__(self, action, command, files, static, recursive, name, max, settings):
+        self.action = action
+        self.command = command
+        self.files = files
+        self.static = static
+        self.recursive = recursive
+        self.name = name
+        self.max = max
+        self.settings = settings
+
+    @classmethod
+    def from_argparse(cls, options):
+        return cls(
+            action=options.action,
+            command=options.command,
+            files=options.files,
+            static=options.static,
+            recursive=options.recursive,
+            name=options.name,
+            max=options.max,
+            settings=options.settings,
+        )
+
+    def get_grid_state(self):
+        """Reads the grid state"""
+        try:
+            with open(self.settings, "r") as f:
+                return json.load(f)
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f"Grid file does not exit: {repr(e.filename)}") from e
+
+    def save_grid_state(self, state):
+        """Saves the grid state"""
+        with open(self.settings, "w") as f:
+            json.dump(state, f, indent=4)
+
+    def folder_name(self, index):
+        """Folder name convention"""
+        return self.name % index
+
+    def grid_match_static(self):
+        logging.info("Matching static files")
+        result = match_files(self.static, allow_empty=True, recursive=self.recursive)
+        for i in result:
+            logging.info(f"  {str(i)}")
+        logging.info(f"Total: {len(result)} files")
+        return result
+
+    def grid_match_templates(self, exclude):
+        logging.info("Matching template files")
+        request = []
+        if self.action == "distribute":
+            request = (*self.files, *self.command)
+        elif self.action == "new":
+            request = self.files
+            if len(request) == 0:
+                request = "*",
+        result = match_template_files(request, recursive=self.recursive, exclude=exclude)
+        for i in result:
+            logging.info(f"  {str(i)}")
+        logging.info(f"Total: {len(result)} files")
+        return result
+
+    @staticmethod
+    def grid_collect_statements(files_grid):
+        statements = {}
+        for grid_file in files_grid:
+            for chunk in grid_file.chunks:
+                if isinstance(chunk, EvalBlock):
+                    if chunk.name in statements:
+                        raise ValueError(f"duplicate statement {chunk} (also {statements[chunk.name]}")
+                    else:
+                        statements[chunk.name] = chunk
+        return statements
+
+    def grid_group_statements(self, statements):
+        statements_core = {}
+        statements_dependent = {}
+
+        for name, statement in statements.items():
+            logging.info(repr(statement))
+            if len(statement.names_missing(builtins)) == 0 and self.action != "distribute":
+                logging.info("  core, evaluating ...")
+                result = statement.eval(builtins)
+                if "__len__" not in dir(result):
+                    result = [result]
+                logging.info(f"  result: {result} (len={len(result)})")
+                statements_core[name] = result
+
+            else:
+                logging.info(f"  depends on: {', '.join(map(repr, statement.required))}")
+                statements_dependent[name] = statement
+        total = reduce(mul, map(len, statements_core.values())) if len(statements_core) else 1
+        logging.info(f"Total: {len(statements_core)} core statement(s) ({total} combination(s)), "
+                     f"{len(statements_dependent)} dependent statement(s)")
+        if total > self.max:
+            raise RuntimeError(f"the total grid size {total} is above threshold {self.max}")
+        return statements_core, statements_dependent, total
+
+    def grid_check_conflicts(self, *args):
+        for i in range(*args):
+            p = Path(self.name % i)
+            if p.exists():
+                raise RuntimeError(f"file or folder '{str(p)}' already exists")
 
 
-def save_grid_state(options, state):
-    """Saves the grid state"""
-    with open(options.settings, "w") as f:
-        json.dump(state, f, indent=4)
-
-
-def folder_name(options, index):
-    """Folder name convention"""
-    return options.name % index
-
-
-def grid_match_static(options):
-    logging.info("Matching static files")
-    result = match_files(options.static, allow_empty=True, recursive=options.recursive)
-    for i in result:
-        logging.info(f"  {str(i)}")
-    logging.info(f"Total: {len(result)} files")
-    return result
-
-
-def grid_match_templates(options, exclude):
-    logging.info("Matching template files")
-    request = []
-    if options.action == "distribute":
-        request = (*options.files, *options.command)
-    elif options.action == "new":
-        request = options.files
-        if len(request) == 0:
-            request = "*",
-    result = match_template_files(request, recursive=options.recursive, exclude=exclude)
-    for i in result:
-        logging.info(f"  {str(i)}")
-    logging.info(f"Total: {len(result)} files")
-    return result
-
-
-def grid_collect_statements(files_grid):
-    statements = {}
-    for grid_file in files_grid:
-        for chunk in grid_file.chunks:
-            if isinstance(chunk, EvalBlock):
-                if chunk.name in statements:
-                    raise ValueError(f"duplicate statement {chunk} (also {statements[chunk.name]}")
-                else:
-                    statements[chunk.name] = chunk
-    return statements
-
-
-def grid_group_statements(options, statements):
-    statements_core = {}
-    statements_dependent = {}
-
-    for name, statement in statements.items():
-        logging.info(repr(statement))
-        if len(statement.names_missing(builtins)) == 0 and options.action != "distribute":
-            logging.info("  core, evaluating ...")
-            result = statement.eval(builtins)
-            if "__len__" not in dir(result):
-                result = [result]
-            logging.info(f"  result: {result} (len={len(result)})")
-            statements_core[name] = result
-
-        else:
-            logging.info(f"  depends on: {', '.join(map(repr, statement.required))}")
-            statements_dependent[name] = statement
-    total = reduce(mul, map(len, statements_core.values())) if len(statements_core) else 1
-    logging.info(f"Total: {len(statements_core)} core statement(s) ({total} combination(s)), "
-                 f"{len(statements_dependent)} dependent statement(s)")
-    if total > options.max:
-        raise RuntimeError(f"the total grid size {total} is above threshold {options.max}")
-    return statements_core, statements_dependent, total
-
-
-def grid_check_conflicts(options, *args):
-    for i in range(*args):
-        p = Path(options.name % i)
-        if p.exists():
-            raise RuntimeError(f"file or folder '{str(p)}' already exists")
-
+grid_options = GridOptions.from_argparse(options)
 
 # ----------------------------------------------------------------------
 #   New grid, distribute
 # ----------------------------------------------------------------------
 
 if options.action in ("new", "distribute"):
-
     # Errors
     if len(options.command) == 0 and options.action == "distribute":
-        parser.error("nothing to distribute")
-
-    # Defaults
-
-    if not options.static:
-        options.static = []
+        parser.error("usage: grid distribute FILE [FILE ...]")
 
     if options.action == "distribute":
-        grid_state = get_grid_state(options)
+        grid_state = grid_options.get_grid_state()
         logging.info("Continue with previous {n} instances".format(n=len(grid_state["grid"])))
 
     # ------------------------------------------------------------------
     #   Common part
     # ------------------------------------------------------------------
 
-    files_static = grid_match_static(options)
-    files_grid = grid_match_templates(options, files_static)
-    statements = grid_collect_statements(files_grid)
+    files_static = grid_options.grid_match_static()
+    files_grid = grid_options.grid_match_templates(files_static)
+    statements = grid_options.grid_collect_statements(files_grid)
 
     reserved_names = set(builtins) | {"__grid_folder_name__", "__grid_id__"}
     overlap = set(statements).intersection(reserved_names)
     if len(overlap) > 0:
         raise ValueError(f"the following names used in the grid are reserved: {', '.join(overlap)}")
 
-    statements_core, statements_dependent, total = grid_group_statements(options, statements)
+    statements_core, statements_dependent, total = grid_options.grid_group_statements(statements)
 
     # Read previous run
     if options.action == "distribute":
@@ -164,7 +178,7 @@ if options.action in ("new", "distribute"):
         if len(overlap) > 0:
             raise ValueError(f"new statement names overlap with previously defined ones: {', '.join(overlap)}")
     elif options.action == "new":
-        grid_check_conflicts(options, total)
+        grid_options.grid_check_conflicts(total)
         grid_state = {"grid": {}, "names": list(statements)}
     else:
         raise NotImplementedError(f"unknown action={options.action}")
@@ -183,7 +197,7 @@ if options.action in ("new", "distribute"):
         ordered_statements = eval_sort(statements_dependent, reserved_names | set(statements_core))
         # Iterate over possible combinations and write a grid
         for stack in combinations(statements_core):
-            scratch = folder_name(options, index)
+            scratch = grid_options.folder_name(index)
             stack["__grid_folder_name__"] = scratch
             stack["__grid_id__"] = index
 
@@ -195,7 +209,7 @@ if options.action in ("new", "distribute"):
             index += 1
 
         # Save state
-        save_grid_state(options, grid_state)
+        grid_options.save_grid_state(grid_state)
 
     # ------------------------------------------------------------------
     #   Distribute
@@ -232,7 +246,7 @@ elif options.action == "run":
     if len(options.command) == 0:
         parser.error("missing command to run")
 
-    current_state = get_grid_state(options)
+    current_state = grid_options.get_grid_state()
     logging.info(f"Executing {' '.join(options.command)} in {len(current_state['grid'])} grid folders")
     exceptions = []
     for cwd in current_state["grid"]:
@@ -252,7 +266,7 @@ elif options.action == "run":
 # ----------------------------------------------------------------------
 
 elif options.action == "cleanup":
-    current_state = get_grid_state(options)
+    current_state = grid_options.get_grid_state()
     logging.info("Removing grid folders")
     exceptions = []
     for f in current_state["grid"]:
