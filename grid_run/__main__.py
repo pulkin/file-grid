@@ -90,6 +90,31 @@ def grid_collect_statements(files_grid):
     return statements
 
 
+def grid_group_statements(options, statements):
+    statements_core = {}
+    statements_dependent = {}
+
+    for name, statement in statements.items():
+        logging.info(repr(statement))
+        if len(statement.names_missing(builtins)) == 0 and options.action != "distribute":
+            logging.info("  core, evaluating ...")
+            result = statement.eval(builtins)
+            if "__len__" not in dir(result):
+                result = [result]
+            logging.info(f"  result: {result} (len={len(result)})")
+            statements_core[name] = result
+
+        else:
+            logging.info(f"  depends on: {', '.join(map(repr, statement.required))}")
+            statements_dependent[name] = statement
+    total = reduce(mul, map(len, statements_core.values())) if len(statements_core) else 1
+    logging.info(f"Total: {len(statements_core)} core statement(s) ({total} combination(s)), "
+                 f"{len(statements_dependent)} dependent statement(s)")
+    if total > options.max:
+        raise RuntimeError(f"the total grid size {total} is above threshold {options.max}")
+    return statements_core, statements_dependent
+
+
 # ----------------------------------------------------------------------
 #   New grid, distribute
 # ----------------------------------------------------------------------
@@ -122,29 +147,8 @@ if options.action in ("new", "distribute"):
     if len(overlap) > 0:
         raise ValueError(f"the following names used in the grid are reserved: {', '.join(overlap)}")
 
-    # Split statements by type
+    statements_core, statements_dependent = grid_group_statements(options, statements)
     total = 1
-    statements_core = {}
-    statements_dependent = {}
-
-    for name, statement in statements.items():
-        logging.info(repr(statement))
-        if len(statement.names_missing(builtins)) == 0 and options.action != "distribute":
-            logging.info("  core, evaluating ...")
-            result = statement.eval(builtins)
-            if "__len__" not in dir(result):
-                result = [result]
-            logging.info(f"  result: {result} (len={len(result)})")
-            total = total * len(result)
-            if total > options.max:
-                raise RuntimeError(f"grid size is too large: {total}")
-            statements_core[name] = result
-
-        else:
-            logging.info(f"  depends on: {', '.join(map(repr, statement.required))}")
-            statements_dependent[name] = statement
-    logging.info(f"Total: {len(statements_core)} core statement(s) ({total} combination(s)), "
-                 f"{len(statements_dependent)} dependent statement(s)")
 
     # Read previous run
     if options.action == "distribute":
