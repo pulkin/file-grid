@@ -155,6 +155,30 @@ class Engine:
             if p.exists():
                 raise RuntimeError(f"file or folder '{str(p)}' already exists")
 
+    def run_cleanup(self):
+        """
+        Performs the cleanup action.
+
+        Removes all grid folders and grid state file.
+        """
+        logging.info("Cleaning up")
+        current_state = self.load_state()
+        logging.info("Removing grid folders")
+        exceptions = []
+        for f in current_state["grid"]:
+            try:
+                shutil.rmtree(f)
+                logging.info(f"  {f}")
+            except Exception as e:
+                exceptions.append(e)
+                logging.exception(f"Error while removing {f}")
+        if len(exceptions):
+            logging.error(f"{len(exceptions)} errors occurred while removing grid folders")
+        logging.info("Removing the data file")
+        Path(options.state).unlink()
+        if len(exceptions):
+            raise exceptions[-1]
+
 
 grid_engine = Engine.from_argparse(options)
 
@@ -270,27 +294,8 @@ elif options.action == "run":
     if len(exceptions) > 0:
         raise exceptions[-1]
 
-# ----------------------------------------------------------------------
-#   Cleanup grid
-# ----------------------------------------------------------------------
-
 elif options.action == "cleanup":
-    current_state = grid_engine.load_state()
-    logging.info("Removing grid folders")
-    exceptions = []
-    for f in current_state["grid"]:
-        try:
-            shutil.rmtree(f)
-            logging.info(f"  {f}")
-        except Exception as e:
-            exceptions.append(e)
-            logging.exception(f"Error while removing {f}")
-    if len(exceptions):
-        logging.error(f"{len(exceptions)} exceptions occurred while removing grid folders")
-    logging.info("Removing the data file")
-    os.remove(options.state)
-    if len(exceptions):
-        raise exceptions[-1]
+    grid_engine.run_cleanup()
 
 
 def dummy():
