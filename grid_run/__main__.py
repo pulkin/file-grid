@@ -27,31 +27,31 @@ parser.add_argument("-s", "--settings", help="setting file name", metavar="FILE"
 parser.add_argument("-l", "--log", help="log file name", metavar="FILE", default=".grid.log")
 parser.add_argument("--root", help="root folder for scanning/placing grid files", default=".")
 parser.add_argument("action", help="action to perform", choices=["new", "run", "cleanup", "distribute"])
-parser.add_argument("command", nargs="*", help="command to execute for 'run' action")
+parser.add_argument("extra", nargs="*", help="extra action arguments for 'run' and 'distribute'")
 
 options = parser.parse_args()
 
 if options.action == "new":
-    if len(options.command) > 0:
+    if len(options.extra) > 0:
         parser.error("usage: grid new (with no extra arguments)")
 elif options.action == "run":
-    if len(options.command) == 0:
+    if len(options.extra) == 0:
         parser.error("usage: grid run COMMAND")
 elif options.action == "cleanup":
-    if len(options.command) > 0:
+    if len(options.extra) > 0:
         parser.error("usage: grid cleanup (no extra arguments)")
 elif options.action == "distribute":
-    if len(options.command) == 0:
+    if len(options.extra) == 0:
         parser.error("usage: grid distribute FILE [FILE ...]")
 
 logging.basicConfig(filename=options.log, filemode="w", level=logging.INFO)
 logging.info(' '.join(sys.argv))
 
 
-class GridOptions:
-    def __init__(self, action, command, files, static, recursive, name, max, settings):
+class Engine:
+    def __init__(self, action, extra, files, static, recursive, name, max, settings):
         self.action = action
-        self.command = command
+        self.extra = extra
         self.files = files
         self.static = static
         self.recursive = recursive
@@ -63,7 +63,7 @@ class GridOptions:
     def from_argparse(cls, options):
         return cls(
             action=options.action,
-            command=options.command,
+            extra=options.extra,
             files=options.files,
             static=options.static,
             recursive=options.recursive,
@@ -101,7 +101,7 @@ class GridOptions:
         logging.info("Matching template files")
         request = []
         if self.action == "distribute":
-            request = (*self.files, *self.command)
+            request = (*self.files, *self.extra)
         elif self.action == "new":
             request = self.files
             if len(request) == 0:
@@ -155,7 +155,7 @@ class GridOptions:
                 raise RuntimeError(f"file or folder '{str(p)}' already exists")
 
 
-grid_options = GridOptions.from_argparse(options)
+grid_options = Engine.from_argparse(options)
 
 # ----------------------------------------------------------------------
 #   New grid, distribute
@@ -255,16 +255,16 @@ if options.action in ("new", "distribute"):
 elif options.action == "run":
 
     current_state = grid_options.load_state()
-    logging.info(f"Executing {' '.join(options.command)} in {len(current_state['grid'])} grid folders")
+    logging.info(f"Executing {' '.join(options.extra)} in {len(current_state['grid'])} grid folders")
     exceptions = []
     for cwd in current_state["grid"]:
 
         try:
             print(cwd)
-            print(subprocess.check_output(options.command, cwd=cwd, stderr=subprocess.PIPE, text=True))
+            print(subprocess.check_output(options.extra, cwd=cwd, stderr=subprocess.PIPE, text=True))
         except (FileNotFoundError, subprocess.SubprocessError) as e:
-            print(f"Failed to execute {' '.join(options.command)} (working directory {repr(cwd)})")
-            logging.exception(f"Failed to execute {' '.join(options.command)} (working directory {repr(cwd)})")
+            print(f"Failed to execute {' '.join(options.extra)} (working directory {repr(cwd)})")
+            logging.exception(f"Failed to execute {' '.join(options.extra)} (working directory {repr(cwd)})")
             exceptions.append(e)
     if len(exceptions) > 0:
         raise exceptions[-1]
