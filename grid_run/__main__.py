@@ -31,6 +31,15 @@ parser.add_argument("command", nargs="*", help="command to execute for 'run' act
 
 options = parser.parse_args()
 
+if options.action == "distribute" and len(options.command) == 0:
+    parser.error("usage: grid distribute FILE [FILE ...]")
+elif options.action == "run" and len(options.command) == 0:
+    parser.error("usage: grid run COMMAND")
+elif options.action == "new" and len(options.command) > 0:
+    parser.error("usage: grid new (no extra arguments)")
+elif options.action == "cleanup" and len(options.command) > 0:
+    parser.error("usage: grid cleanup (no extra arguments)")
+
 logging.basicConfig(filename=options.log, filemode="w", level=logging.INFO)
 logging.info(' '.join(sys.argv))
 
@@ -149,9 +158,6 @@ grid_options = GridOptions.from_argparse(options)
 # ----------------------------------------------------------------------
 
 if options.action in ("new", "distribute"):
-    # Errors
-    if len(options.command) == 0 and options.action == "distribute":
-        parser.error("usage: grid distribute FILE [FILE ...]")
 
     if options.action == "distribute":
         grid_state = grid_options.load_state()
@@ -243,8 +249,6 @@ if options.action in ("new", "distribute"):
 # ----------------------------------------------------------------------
 
 elif options.action == "run":
-    if len(options.command) == 0:
-        parser.error("missing command to run")
 
     current_state = grid_options.load_state()
     logging.info(f"Executing {' '.join(options.command)} in {len(current_state['grid'])} grid folders")
