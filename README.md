@@ -1,7 +1,6 @@
 [![build](https://github.com/pulkin/grid-run/actions/workflows/test.yml/badge.svg)](https://github.com/pulkin/grid-run/actions)
 
-grid-run
-========
+# ![icon](resources/icon-full.svg)
 
 Clone and multiply your HPC jobs seamlessly using a simple template language.
 
