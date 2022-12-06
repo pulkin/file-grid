@@ -23,7 +23,7 @@ parser.add_argument("-t", "--static", nargs="+", help="files to be copied", meta
 parser.add_argument("-r", "--recursive", help="visit sub-folders when matching file names", action="store_true")
 parser.add_argument("-n", "--name", help="grid folder naming pattern", metavar="PATTERN", default="grid%d")
 parser.add_argument("-m", "--max", help="maximum allowed grid size", metavar="N", default=10_000)
-parser.add_argument("-s", "--settings", help="setting file name", metavar="FILE", default=".grid")
+parser.add_argument("-s", "--state", help="state file name", metavar="FILE", default=".grid")
 parser.add_argument("-l", "--log", help="log file name", metavar="FILE", default=".grid.log")
 parser.add_argument("--root", help="root folder for scanning/placing grid files", default=".")
 parser.add_argument("action", help="action to perform", choices=["new", "run", "cleanup", "distribute"])
@@ -49,7 +49,7 @@ logging.info(' '.join(sys.argv))
 
 
 class Engine:
-    def __init__(self, action, extra, template_files, static_files, recursive, name, max_size, settings):
+    def __init__(self, action, extra, template_files, static_files, recursive, name, max_size, state_fn):
         self.action = action
         self.extra = extra
         self.template_files = template_files
@@ -57,7 +57,7 @@ class Engine:
         self.recursive = recursive
         self.name = name
         self.max_size = max_size
-        self.settings = settings
+        self.state_fn = state_fn
 
     @classmethod
     def from_argparse(cls, options):
@@ -69,20 +69,21 @@ class Engine:
             recursive=options.recursive,
             name=options.name,
             max_size=options.max,
-            settings=options.settings,
+            state_fn=options.state,
         )
 
     def load_state(self):
         """Reads the grid state"""
+        logging.info(f"Loading grid state from '{self.state_fn}'")
         try:
-            with open(self.settings, "r") as f:
+            with open(self.state_fn, "r") as f:
                 return json.load(f)
         except FileNotFoundError as e:
             raise FileNotFoundError(f"Grid file does not exit: {repr(e.filename)}") from e
 
     def save_state(self, state):
         """Saves the grid state"""
-        with open(self.settings, "w") as f:
+        with open(self.state_fn, "w") as f:
             json.dump(state, f, indent=4)
 
     def folder_name(self, index):
@@ -287,7 +288,7 @@ elif options.action == "cleanup":
     if len(exceptions):
         logging.error(f"{len(exceptions)} exceptions occurred while removing grid folders")
     logging.info("Removing the data file")
-    os.remove(options.settings)
+    os.remove(options.state)
     if len(exceptions):
         raise exceptions[-1]
 
