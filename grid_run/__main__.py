@@ -49,14 +49,14 @@ logging.info(' '.join(sys.argv))
 
 
 class Engine:
-    def __init__(self, action, extra, template_files, static_files, recursive, name, max, settings):
+    def __init__(self, action, extra, template_files, static_files, recursive, name, max_size, settings):
         self.action = action
         self.extra = extra
         self.template_files = template_files
         self.static_files = static_files
         self.recursive = recursive
         self.name = name
-        self.max = max
+        self.max_size = max_size
         self.settings = settings
 
     @classmethod
@@ -68,7 +68,7 @@ class Engine:
             static_files=options.static,
             recursive=options.recursive,
             name=options.name,
-            max=options.max,
+            max_size=options.max,
             settings=options.settings,
         )
 
@@ -144,8 +144,8 @@ class Engine:
         total = reduce(mul, map(len, statements_core.values())) if len(statements_core) else 1
         logging.info(f"Total: {len(statements_core)} core statement(s) ({total} combination(s)), "
                      f"{len(statements_dependent)} dependent statement(s)")
-        if total > self.max:
-            raise RuntimeError(f"the total grid size {total} is above threshold {self.max}")
+        if total > self.max_size:
+            raise RuntimeError(f"the total grid size {total} is above threshold {self.max_size}")
         return statements_core, statements_dependent, total
 
     def check_folder_conflicts(self, *args):
