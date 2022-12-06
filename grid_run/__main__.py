@@ -199,6 +199,55 @@ class Engine:
         # Save state
         grid_engine.save_state(grid_state)
 
+    def run_distribute(self):
+        """
+        Runs grid distribute.
+
+        Distributes one or many files over the existing grid.
+        """
+        logging.info("Distributing over the existing grid")
+        current_state = self.load_state()
+        logging.info(f"   grid folders: {len(current_state['grid'])}")
+
+        files_static = self.match_static()
+        files_grid = self.match_templates(files_static)
+        statements = self.collect_statements(files_grid)
+
+        reserved_names = set(builtins) | {"__grid_folder_name__", "__grid_id__"}
+        overlap = set(statements).intersection(reserved_names)
+        if len(overlap) > 0:
+            raise ValueError(f"the following names used in the grid are reserved: {', '.join(overlap)}")
+
+        statements_core, statements_dependent, total = self.group_statements(statements)
+        if len(statements_core) > 0:
+            raise ValueError(f"(new) core statements are not allowed when distributing: {', '.join(statements_core)}")
+        overlap = set(current_state["names"]).intersection(set(statements))
+        if len(overlap) > 0:
+            raise ValueError(f"new names overlap with the ones previously defined: {', '.join(overlap)}")
+        if len(statements_dependent) == 0:
+            warn("No dependent statements found. File(s) will be distributed as-is.")
+
+        logging.info(f"Distributing files into {len(current_state['grid'])} folders")
+        exceptions = []
+
+        # Figure out order
+        ordered_statements = eval_sort(statements_dependent, set(reserved_names | set(current_state["names"])))
+
+        for k, v in current_state["grid"].items():
+            if not Path(k).is_dir():
+                logging.exception(f"Grid folder {k} does not exist")
+                exceptions.append(FileNotFoundError(f"No such file or directory: {repr(k)}"))
+                continue
+            try:
+                stack = v["stack"]
+                values = eval_all(ordered_statements, v["stack"])
+                stack.update({statement.name: v for statement, v in zip(ordered_statements, values)})
+                write_grid(k, stack, files_static, files_grid, options.root)
+            except Exception as e:
+                exceptions.append(e)
+        if len(exceptions) > 0:
+            raise exceptions[-1]
+
     def run_exec(self):
         """
         Performs the run action.
@@ -254,92 +303,8 @@ grid_engine = Engine.from_argparse(options)
 if options.action == "new":
     grid_engine.run_new()
 
-elif options.action in ("new", "distribute"):
-
-    if options.action == "distribute":
-        grid_state = grid_engine.load_state()
-        logging.info("Continue with previous {n} instances".format(n=len(grid_state["grid"])))
-
-    # ------------------------------------------------------------------
-    #   Common part
-    # ------------------------------------------------------------------
-
-    files_static = grid_engine.match_static()
-    files_grid = grid_engine.match_templates(files_static)
-    statements = grid_engine.collect_statements(files_grid)
-
-    reserved_names = set(builtins) | {"__grid_folder_name__", "__grid_id__"}
-    overlap = set(statements).intersection(reserved_names)
-    if len(overlap) > 0:
-        raise ValueError(f"the following names used in the grid are reserved: {', '.join(overlap)}")
-
-    statements_core, statements_dependent, total = grid_engine.group_statements(statements)
-
-    # Read previous run
-    if options.action == "distribute":
-        overlap = set(grid_state["names"]).intersection(set(statements))
-        if len(overlap) > 0:
-            raise ValueError(f"new statement names overlap with previously defined ones: {', '.join(overlap)}")
-    elif options.action == "new":
-        grid_engine.check_folder_conflicts(total)
-        grid_state = {"grid": {}, "names": list(statements)}
-    else:
-        raise NotImplementedError(f"unknown action={options.action}")
-
-    index = len(grid_state["grid"])
-
-    # ------------------------------------------------------------------
-    #   New
-    # ------------------------------------------------------------------
-
-    if options.action == "new":
-        if len(statements_core) == 0:
-            warn(f"No fixed groups found")
-
-        # Figure out order
-        ordered_statements = eval_sort(statements_dependent, reserved_names | set(statements_core))
-        # Iterate over possible combinations and write a grid
-        for stack in combinations(statements_core):
-            scratch = grid_engine.folder_name(index)
-            stack["__grid_folder_name__"] = scratch
-            stack["__grid_id__"] = index
-
-            values = eval_all(ordered_statements, {**stack, **builtins})
-            stack.update({statement.name: v for statement, v in zip(ordered_statements, values)})
-            grid_state["grid"][scratch] = {"stack": stack}
-            logging.info(f"  composing {scratch}")
-            write_grid(scratch, stack, files_static, files_grid, options.root)
-            index += 1
-
-        # Save state
-        grid_engine.save_state(grid_state)
-
-    # ------------------------------------------------------------------
-    #   Distribute
-    # ------------------------------------------------------------------
-
-    elif options.action == "distribute":
-        assert len(statements_core) == 0
-        if len(statements_dependent) == 0:
-            warn("No dependent statements found. File(s) will be distributed as-is.")
-
-        logging.info(f"Distributing files into {len(grid_state)} folders")
-        exceptions = []
-
-        # Figure out order
-        ordered_statements = eval_sort(statements_dependent, set(grid_state["names"]))
-
-        for k, v in grid_state["grid"].items():
-            if not Path(k).is_dir():
-                logging.exception(f"Grid folder {k} does not exist")
-                exceptions.append(FileNotFoundError(f"No such file or directory: {repr(k)}"))
-            else:
-                stack = v["stack"]
-                values = eval_all(ordered_statements, v["stack"])
-                stack.update({statement.name: v for statement, v in zip(ordered_statements, values)})
-                write_grid(k, stack, files_static, files_grid, options.root)
-        if len(exceptions) > 0:
-            raise exceptions[-1]
+elif options.action == "distribute":
+    grid_engine.run_distribute()
 
 elif options.action == "run":
     grid_engine.run_exec()
