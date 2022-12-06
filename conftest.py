@@ -1,2 +1,2 @@
 def pytest_addoption(parser):
-    parser.addoption("--grid-script", action="store", default="python -m grid_run")
+    parser.addoption("--grid-script", action="store", default="python -m file_grid")

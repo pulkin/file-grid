@@ -1,4 +1,4 @@
-from grid_run.parsing import iter_template_blocks, repr_pos, split_assignment
+from file_grid.parsing import iter_template_blocks, repr_pos, split_assignment
 import pytest
 
 

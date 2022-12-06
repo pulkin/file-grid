@@ -1,8 +1,8 @@
-[![build](https://github.com/pulkin/grid-run/actions/workflows/test.yml/badge.svg)](https://github.com/pulkin/grid-run/actions)
+[![build](https://github.com/pulkin/file-grid/actions/workflows/test.yml/badge.svg)](https://github.com/pulkin/file-grid/actions)
 
 # ![icon](resources/icon-full.svg)
 
-Clone and multiply your HPC jobs seamlessly using a simple template language.
+Clone and multiply your files seamlessly using a simple template language.
 
 What it is
 ----------
@@ -20,7 +20,7 @@ Install
 Install from git
 
 ```bash
-pip install git+https://github.com/pulkin/grid-run.git#egg=grid_run
+pip install git+https://github.com/pulkin/file-grid.git#egg=file_grid
 ```
 
 Build and install from source
@@ -35,7 +35,7 @@ Run
 ---
 
 ```bash
-python -m grid_run
+python -m file_grid
 ```
 
 or simply
