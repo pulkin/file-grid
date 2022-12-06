@@ -156,7 +156,7 @@ class Engine:
                 raise RuntimeError(f"file or folder '{str(p)}' already exists")
 
 
-grid_options = Engine.from_argparse(options)
+grid_engine = Engine.from_argparse(options)
 
 # ----------------------------------------------------------------------
 #   New grid, distribute
@@ -165,23 +165,23 @@ grid_options = Engine.from_argparse(options)
 if options.action in ("new", "distribute"):
 
     if options.action == "distribute":
-        grid_state = grid_options.load_state()
+        grid_state = grid_engine.load_state()
         logging.info("Continue with previous {n} instances".format(n=len(grid_state["grid"])))
 
     # ------------------------------------------------------------------
     #   Common part
     # ------------------------------------------------------------------
 
-    files_static = grid_options.match_static()
-    files_grid = grid_options.match_templates(files_static)
-    statements = grid_options.collect_statements(files_grid)
+    files_static = grid_engine.match_static()
+    files_grid = grid_engine.match_templates(files_static)
+    statements = grid_engine.collect_statements(files_grid)
 
     reserved_names = set(builtins) | {"__grid_folder_name__", "__grid_id__"}
     overlap = set(statements).intersection(reserved_names)
     if len(overlap) > 0:
         raise ValueError(f"the following names used in the grid are reserved: {', '.join(overlap)}")
 
-    statements_core, statements_dependent, total = grid_options.group_statements(statements)
+    statements_core, statements_dependent, total = grid_engine.group_statements(statements)
 
     # Read previous run
     if options.action == "distribute":
@@ -189,7 +189,7 @@ if options.action in ("new", "distribute"):
         if len(overlap) > 0:
             raise ValueError(f"new statement names overlap with previously defined ones: {', '.join(overlap)}")
     elif options.action == "new":
-        grid_options.check_folder_conflicts(total)
+        grid_engine.check_folder_conflicts(total)
         grid_state = {"grid": {}, "names": list(statements)}
     else:
         raise NotImplementedError(f"unknown action={options.action}")
@@ -208,7 +208,7 @@ if options.action in ("new", "distribute"):
         ordered_statements = eval_sort(statements_dependent, reserved_names | set(statements_core))
         # Iterate over possible combinations and write a grid
         for stack in combinations(statements_core):
-            scratch = grid_options.folder_name(index)
+            scratch = grid_engine.folder_name(index)
             stack["__grid_folder_name__"] = scratch
             stack["__grid_id__"] = index
 
@@ -220,7 +220,7 @@ if options.action in ("new", "distribute"):
             index += 1
 
         # Save state
-        grid_options.save_state(grid_state)
+        grid_engine.save_state(grid_state)
 
     # ------------------------------------------------------------------
     #   Distribute
@@ -255,7 +255,7 @@ if options.action in ("new", "distribute"):
 
 elif options.action == "run":
 
-    current_state = grid_options.load_state()
+    current_state = grid_engine.load_state()
     logging.info(f"Executing {' '.join(options.extra)} in {len(current_state['grid'])} grid folders")
     exceptions = []
     for cwd in current_state["grid"]:
@@ -275,7 +275,7 @@ elif options.action == "run":
 # ----------------------------------------------------------------------
 
 elif options.action == "cleanup":
-    current_state = grid_options.load_state()
+    current_state = grid_engine.load_state()
     logging.info("Removing grid folders")
     exceptions = []
     for f in current_state["grid"]:
