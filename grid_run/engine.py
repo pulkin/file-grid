@@ -7,7 +7,6 @@ from pathlib import Path
 from functools import reduce
 from operator import mul
 from warnings import warn
-import sys
 
 from .algorithm import eval_sort, eval_all
 from .tools import combinations
