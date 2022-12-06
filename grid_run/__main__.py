@@ -31,14 +31,18 @@ parser.add_argument("command", nargs="*", help="command to execute for 'run' act
 
 options = parser.parse_args()
 
-if options.action == "distribute" and len(options.command) == 0:
-    parser.error("usage: grid distribute FILE [FILE ...]")
-elif options.action == "run" and len(options.command) == 0:
-    parser.error("usage: grid run COMMAND")
-elif options.action == "new" and len(options.command) > 0:
-    parser.error("usage: grid new (no extra arguments)")
-elif options.action == "cleanup" and len(options.command) > 0:
-    parser.error("usage: grid cleanup (no extra arguments)")
+if options.action == "new":
+    if len(options.command) > 0:
+        parser.error("usage: grid new (with no extra arguments)")
+elif options.action == "run":
+    if len(options.command) == 0:
+        parser.error("usage: grid run COMMAND")
+elif options.action == "cleanup":
+    if len(options.command) > 0:
+        parser.error("usage: grid cleanup (no extra arguments)")
+elif options.action == "distribute":
+    if len(options.command) == 0:
+        parser.error("usage: grid distribute FILE [FILE ...]")
 
 logging.basicConfig(filename=options.log, filemode="w", level=logging.INFO)
 logging.info(' '.join(sys.argv))
