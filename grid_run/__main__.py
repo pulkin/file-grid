@@ -2,7 +2,6 @@
 import argparse
 import json
 import logging
-import os
 import shutil
 import subprocess
 import sys
@@ -155,6 +154,51 @@ class Engine:
             if p.exists():
                 raise RuntimeError(f"file or folder '{str(p)}' already exists")
 
+    def run_new(self, builtins=builtins):
+        """
+        Performs the new action.
+
+        Creates an array of grid folders.
+        """
+        logging.info("Creating a new grid")
+
+        files_static = self.match_static()
+        files_grid = self.match_templates(files_static)
+        statements = self.collect_statements(files_grid)
+
+        reserved_names = set(builtins) | {"__grid_folder_name__", "__grid_id__"}
+        overlap = set(statements).intersection(reserved_names)
+        if len(overlap) > 0:
+            raise ValueError(f"the following names used in the grid are reserved: {', '.join(overlap)}")
+
+        statements_core, statements_dependent, total = self.group_statements(statements)
+
+        # Read previous run
+        self.check_folder_conflicts(total)
+        grid_state = {"grid": {}, "names": list(statements)}
+        index = 0
+
+        if len(statements_core) == 0:
+            warn(f"No fixed groups found")
+
+        # Figure out order
+        ordered_statements = eval_sort(statements_dependent, reserved_names | set(statements_core))
+        # Iterate over possible combinations and write a grid
+        for stack in combinations(statements_core):
+            scratch = grid_engine.folder_name(index)
+            stack["__grid_folder_name__"] = scratch
+            stack["__grid_id__"] = index
+
+            values = eval_all(ordered_statements, {**stack, **builtins})
+            stack.update({statement.name: v for statement, v in zip(ordered_statements, values)})
+            grid_state["grid"][scratch] = {"stack": stack}
+            logging.info(f"  composing {scratch}")
+            write_grid(scratch, stack, files_static, files_grid, options.root)
+            index += 1
+
+        # Save state
+        grid_engine.save_state(grid_state)
+
     def run_exec(self):
         """
         Performs the run action.
@@ -207,7 +251,10 @@ grid_engine = Engine.from_argparse(options)
 #   New grid, distribute
 # ----------------------------------------------------------------------
 
-if options.action in ("new", "distribute"):
+if options.action == "new":
+    grid_engine.run_new()
+
+elif options.action in ("new", "distribute"):
 
     if options.action == "distribute":
         grid_state = grid_engine.load_state()
@@ -293,10 +340,6 @@ if options.action in ("new", "distribute"):
                 write_grid(k, stack, files_static, files_grid, options.root)
         if len(exceptions) > 0:
             raise exceptions[-1]
-
-# ----------------------------------------------------------------------
-#   Execute in context of grid
-# ----------------------------------------------------------------------
 
 elif options.action == "run":
     grid_engine.run_exec()
