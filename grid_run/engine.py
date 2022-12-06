@@ -1,3 +1,4 @@
+import argparse
 import json
 import logging
 import shutil
@@ -6,6 +7,7 @@ from pathlib import Path
 from functools import reduce
 from operator import mul
 from warnings import warn
+import sys
 
 from .algorithm import eval_sort, eval_all
 from .tools import combinations
@@ -13,9 +15,21 @@ from .template import EvalBlock
 from .grid_builtins import builtins
 from .files import match_files, match_template_files, write_grid
 
+arg_parser = argparse.ArgumentParser(description="Creates arrays [grids] of similar files and folders")
+arg_parser.add_argument("-f", "--files", nargs="+", help="files to be processed", metavar="FILE", default=tuple())
+arg_parser.add_argument("-t", "--static", nargs="+", help="files to be copied", metavar="FILE", default=tuple())
+arg_parser.add_argument("-r", "--recursive", help="visit sub-folders when matching file names", action="store_true")
+arg_parser.add_argument("-n", "--name", help="grid folder naming pattern", metavar="PATTERN", default="grid%d")
+arg_parser.add_argument("-m", "--max", help="maximum allowed grid size", metavar="N", default=10_000)
+arg_parser.add_argument("-s", "--state", help="state file name", metavar="FILE", default=".grid")
+arg_parser.add_argument("-l", "--log", help="log file name", metavar="FILE", default=".grid.log")
+arg_parser.add_argument("--root", help="root folder for scanning/placing grid files", default=".")
+arg_parser.add_argument("action", help="action to perform", choices=["new", "run", "cleanup", "distribute"])
+arg_parser.add_argument("extra", nargs="*", help="extra action arguments for 'run' and 'distribute'")
+
 
 class Engine:
-    def __init__(self, action, extra, template_files, static_files, root, recursive, name, max_size, state_fn):
+    def __init__(self, action, extra, template_files, static_files, root, recursive, name, max_size, state_fn, log_fn):
         self.action = action
         self.extra = extra
         self.template_files = template_files
@@ -25,6 +39,7 @@ class Engine:
         self.name = name
         self.max_size = max_size
         self.state_fn = state_fn
+        self.log_fn = log_fn
 
     @classmethod
     def from_argparse(cls, options):
@@ -38,7 +53,11 @@ class Engine:
             name=options.name,
             max_size=options.max,
             state_fn=options.state,
+            log_fn=options.log,
         )
+
+    def setup_logging(self):
+        logging.basicConfig(filename=self.log_fn, filemode="w", level=logging.INFO)
 
     def load_state(self):
         """Reads the grid state"""
@@ -261,3 +280,37 @@ class Engine:
         Path(self.state_fn).unlink()
         if len(exceptions):
             raise exceptions[-1]
+
+    def run(self):
+        self.setup_logging()
+        if self.action == "new":
+            self.run_new()
+        elif self.action == "distribute":
+            self.run_distribute()
+        elif self.action == "run":
+            self.run_exec()
+        elif self.action == "cleanup":
+            self.run_cleanup()
+        else:
+            raise NotImplementedError(f"action '{self.action}' not implemented")
+
+
+def grid_run(options=None):
+    """Parses command line arguments and runs the desired grid action"""
+    if options is None:
+        options = arg_parser.parse_args()
+
+    if options.action == "new":
+        if len(options.extra) > 0:
+            arg_parser.error("usage: grid new (with no extra arguments)")
+    elif options.action == "run":
+        if len(options.extra) == 0:
+            arg_parser.error("usage: grid run COMMAND")
+    elif options.action == "cleanup":
+        if len(options.extra) > 0:
+            arg_parser.error("usage: grid cleanup (no extra arguments)")
+    elif options.action == "distribute":
+        if len(options.extra) == 0:
+            arg_parser.error("usage: grid distribute FILE [FILE ...]")
+
+    return Engine.from_argparse(options).run()

@@ -8,7 +8,7 @@ from .template import Template
 def match_files(patterns, root=".", apply=None, exclude=None, recursive=False, hidden=False, allow_empty=False):
     """Collects files matching a list of patterns"""
     if len(patterns) == 0 and not allow_empty:
-        raise ValueError(f"no patterns provided")
+        raise ValueError(f"no patterns or files provided")
     root = Path(root)
     if exclude is None:
         exclude = set()
