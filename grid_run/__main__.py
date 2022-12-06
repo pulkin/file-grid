@@ -155,6 +155,27 @@ class Engine:
             if p.exists():
                 raise RuntimeError(f"file or folder '{str(p)}' already exists")
 
+    def run_exec(self):
+        """
+        Performs the run action.
+
+        Executes a command in all grid folders.
+        """
+        logging.info(f"Executing {' '.join(self.extra)}")
+        current_state = self.load_state()
+        logging.info(f"   grid folders: {len(current_state['grid'])}")
+        exceptions = []
+        for cwd in current_state["grid"]:
+            try:
+                print(cwd)
+                print(subprocess.check_output(self.extra, cwd=cwd, stderr=subprocess.PIPE, text=True))
+            except (FileNotFoundError, subprocess.SubprocessError) as e:
+                print(f"Failed to execute {' '.join(self.extra)} (working directory {repr(cwd)})")
+                logging.exception(f"Failed to execute {' '.join(self.extra)} (working directory {repr(cwd)})")
+                exceptions.append(e)
+        if len(exceptions) > 0:
+            raise exceptions[-1]
+
     def run_cleanup(self):
         """
         Performs the cleanup action.
@@ -278,21 +299,7 @@ if options.action in ("new", "distribute"):
 # ----------------------------------------------------------------------
 
 elif options.action == "run":
-
-    current_state = grid_engine.load_state()
-    logging.info(f"Executing {' '.join(options.extra)} in {len(current_state['grid'])} grid folders")
-    exceptions = []
-    for cwd in current_state["grid"]:
-
-        try:
-            print(cwd)
-            print(subprocess.check_output(options.extra, cwd=cwd, stderr=subprocess.PIPE, text=True))
-        except (FileNotFoundError, subprocess.SubprocessError) as e:
-            print(f"Failed to execute {' '.join(options.extra)} (working directory {repr(cwd)})")
-            logging.exception(f"Failed to execute {' '.join(options.extra)} (working directory {repr(cwd)})")
-            exceptions.append(e)
-    if len(exceptions) > 0:
-        raise exceptions[-1]
+    grid_engine.run_exec()
 
 elif options.action == "cleanup":
     grid_engine.run_cleanup()
