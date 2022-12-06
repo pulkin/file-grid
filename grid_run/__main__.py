@@ -49,11 +49,11 @@ logging.info(' '.join(sys.argv))
 
 
 class Engine:
-    def __init__(self, action, extra, files, static, recursive, name, max, settings):
+    def __init__(self, action, extra, template_files, static_files, recursive, name, max, settings):
         self.action = action
         self.extra = extra
-        self.files = files
-        self.static = static
+        self.template_files = template_files
+        self.static_files = static_files
         self.recursive = recursive
         self.name = name
         self.max = max
@@ -64,8 +64,8 @@ class Engine:
         return cls(
             action=options.action,
             extra=options.extra,
-            files=options.files,
-            static=options.static,
+            template_files=options.files,
+            static_files=options.static,
             recursive=options.recursive,
             name=options.name,
             max=options.max,
@@ -91,7 +91,7 @@ class Engine:
 
     def match_static(self):
         logging.info("Matching static files")
-        result = match_files(self.static, allow_empty=True, recursive=self.recursive)
+        result = match_files(self.static_files, allow_empty=True, recursive=self.recursive)
         for i in result:
             logging.info(f"  {str(i)}")
         logging.info(f"Total: {len(result)} files")
@@ -101,9 +101,9 @@ class Engine:
         logging.info("Matching template files")
         request = []
         if self.action == "distribute":
-            request = (*self.files, *self.extra)
+            request = (*self.template_files, *self.extra)
         elif self.action == "new":
-            request = self.files
+            request = self.template_files
             if len(request) == 0:
                 request = "*",
         result = match_template_files(request, recursive=self.recursive, exclude=exclude)
