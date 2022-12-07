@@ -101,7 +101,13 @@ def test_const(grid_script):
     base = {"file_with_const": "{% 1 %} {% 'a' %} {% 3 %}"}
     root, output = run_grid(base, grid_script, "new")
     assert output == ""
-    assert read_folder(root) == {**base, "grid0/file_with_const": "1 a 3"}
+    assert read_folder(root) == {
+        **base,
+        "grid0/file_with_const": "1 a 3",
+        "grid0/.variables": "anonymous_file_with_const_l1c11 = a\n"
+                            "anonymous_file_with_const_l1c21 = 3\n"
+                            "anonymous_file_with_const_l1c3 = 1",
+    }
 
 
 @test_steps("grid new", "grid run", "grid distribute", "grid cleanup")
@@ -113,8 +119,11 @@ def test_list(grid_script):
     assert read_folder(root) == {
         **base,
         "grid0/file_with_list": "1",
+        "grid0/.variables": "a = 1",
         "grid1/file_with_list": "2",
+        "grid1/.variables": "a = 2",
         "grid2/file_with_list": "a",
+        "grid2/.variables": "a = a",
     }
     yield
 
@@ -138,10 +147,13 @@ def test_list(grid_script):
         **base,
         "grid0/file_with_list": "1",
         "grid0/additional_file": "2",
+        "grid0/.variables": "a = 1",
         "grid1/file_with_list": "2",
         "grid1/additional_file": "4",
+        "grid1/.variables": "a = 2",
         "grid2/file_with_list": "a",
         "grid2/additional_file": "aa",
+        "grid2/.variables": "a = a",
     }
     yield
 
@@ -160,8 +172,11 @@ def test_list_missing(grid_script):
     assert read_folder(root) == {
         **base,
         "grid0/file_with_list": "1",
+        "grid0/.variables": "a = 1",
         "grid1/file_with_list": "2",
+        "grid1/.variables": "a = 2",
         "grid2/file_with_list": "a",
+        "grid2/.variables": "a = a",
     }
     yield
 
@@ -195,9 +210,11 @@ def test_list_missing(grid_script):
     assert read_folder(root) == {
         **base,
         "grid0/file_with_list": "1",
+        "grid0/.variables": "a = 1",
         "grid0/additional_file": "2",
         "grid2/file_with_list": "a",
         "grid2/additional_file": "aa",
+        "grid2/.variables": "a = a",
     }
     yield
 
@@ -219,10 +236,15 @@ def test_range_1(grid_script):
     assert read_folder(root) == {
         **base,
         "grid0/file_with_range": "r=0",
+        "grid0/.variables": "anonymous_file_with_range_l1c5 = 0",
         "grid1/file_with_range": "r=1",
+        "grid1/.variables": "anonymous_file_with_range_l1c5 = 1",
         "grid2/file_with_range": "r=2",
+        "grid2/.variables": "anonymous_file_with_range_l1c5 = 2",
         "grid3/file_with_range": "r=3",
+        "grid3/.variables": "anonymous_file_with_range_l1c5 = 3",
         "grid4/file_with_range": "r=4",
+        "grid4/.variables": "anonymous_file_with_range_l1c5 = 4",
     }
 
 
@@ -234,6 +256,7 @@ def test_range_2(grid_script):
     assert read_folder(root) == {
         **base,
         "grid0/file_with_range": "r=5",
+        "grid0/.variables": "anonymous_file_with_range_l1c5 = 5",
     }
 
 
@@ -245,7 +268,9 @@ def test_range_3(grid_script):
     assert read_folder(root) == {
         **base,
         "grid0/file_with_range": "r=5",
+        "grid0/.variables": "anonymous_file_with_range_l1c5 = 5",
         "grid1/file_with_range": "r=8",
+        "grid1/.variables": "anonymous_file_with_range_l1c5 = 8",
     }
 
 
@@ -257,8 +282,11 @@ def test_linspace(grid_script):
     assert read_folder(root) == {
         **base,
         "grid0/file_with_linspace": "l=5.0",
+        "grid0/.variables": "anonymous_file_with_linspace_l1c5 = 5.0",
         "grid1/file_with_linspace": "l=7.5",
+        "grid1/.variables": "anonymous_file_with_linspace_l1c5 = 7.5",
         "grid2/file_with_linspace": "l=10.0",
+        "grid2/.variables": "anonymous_file_with_linspace_l1c5 = 10.0",
     }
 
 
@@ -270,8 +298,11 @@ def test_dependency(grid_script):
     assert read_folder(root) == {
         **base,
         "grid0/file_with_dependency": "1, 2, 6",
+        "grid0/.variables": "a = 1\nb = 2\nc = 6",
         "grid1/file_with_dependency": "2, 4, 12",
+        "grid1/.variables": "a = 2\nb = 4\nc = 12",
         "grid2/file_with_dependency": "3, 6, 18",
+        "grid2/.variables": "a = 3\nb = 6\nc = 18",
     }
 
 
@@ -283,8 +314,8 @@ def test_loop_dependency(grid_script):
     e = e_info.value
     assert e.returncode == 1
     assert e.stderr.endswith("2 expressions cannot be evaluated:\n"
-                             "a = b [defined in \'file_with_dependency\']: missing \'b\'\n"
-                             "b = 2 * a [defined in \'file_with_dependency\']: missing \'a\'\n")
+                             "a: missing \'b\'\n"
+                             "b: missing \'a\'\n")
     assert e.stdout == ""
 
 
@@ -301,8 +332,10 @@ def test_explicit_files(grid_script):
     assert read_folder(root) == {
         **base,
         "grid0/file_include": "1",
+        "grid0/.variables": "anonymous_file_include_l1c3 = 1",
         "grid0/file_include_static": "abc",
         "grid1/file_include": "2",
+        "grid1/.variables": "anonymous_file_include_l1c3 = 2",
         "grid1/file_include_static": "abc",
     }
 
@@ -318,8 +351,10 @@ def test_static_files(grid_script):
     assert read_folder(root) == {
         **base,
         "grid0/file_with_list": "1",
+        "grid0/.variables": "anonymous_file_with_list_l1c3 = 1",
         "grid0/file_include_static": "abc {% [3, 4] %}",
         "grid1/file_with_list": "2",
+        "grid1/.variables": "anonymous_file_with_list_l1c3 = 2",
         "grid1/file_include_static": "abc {% [3, 4] %}",
     }
 
@@ -333,8 +368,11 @@ def test_name(grid_script):
     assert read_folder(root) == {
         **base,
         "custom0/file_with_list": "1",
+        "custom0/.variables": "anonymous_file_with_list_l1c3 = 1",
         "custom1/file_with_list": "2",
+        "custom1/.variables": "anonymous_file_with_list_l1c3 = 2",
         "custom2/file_with_list": "a",
+        "custom2/.variables": "anonymous_file_with_list_l1c3 = a",
     }
     yield
 
@@ -352,8 +390,11 @@ def test_recursive(grid_script):
     assert read_folder(root) == {
         **base,
         "grid0/sub/file_with_list": "1",
+        "grid0/.variables": "anonymous_sub_file_with_list_l1c3 = 1",
         "grid1/sub/file_with_list": "2",
+        "grid1/.variables": "anonymous_sub_file_with_list_l1c3 = 2",
         "grid2/sub/file_with_list": "a",
+        "grid2/.variables": "anonymous_sub_file_with_list_l1c3 = a",
     }
 
 

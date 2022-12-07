@@ -19,21 +19,21 @@ def test_repr_pos():
 
 def test_iter_template_blocks():
     """Tests whether template blocks are properly identified"""
-    assert list(iter_template_blocks("casual text")) == ["casual text"]
-    assert list(iter_template_blocks("escaped left \\{%")) == ["escaped left {%"]
-    assert list(iter_template_blocks("escaped left \\{% ")) == ["escaped left {% "]
-    assert list(iter_template_blocks("prefix{%block%}postfix")) == ["prefix", "block", "postfix"]
-    assert list(iter_template_blocks("{%block%}")) == ["", "block", ""]
-    assert list(iter_template_blocks("prefix{%block%}")) == ["prefix", "block", ""]
-    assert list(iter_template_blocks("{%block%}postfix")) == ["", "block", "postfix"]
-    assert list(iter_template_blocks("{%%}")) == ["", "", ""]
+    assert list(iter_template_blocks("casual text")) == [(0, "casual text")]
+    assert list(iter_template_blocks("escaped left \\{%")) == [(0, "escaped left {%")]
+    assert list(iter_template_blocks("escaped left \\{% ")) == [(0, "escaped left {% ")]
+    assert list(iter_template_blocks("prefix{%block%}postfix")) == [(0, "prefix"), (8, "block"), (15, "postfix")]
+    assert list(iter_template_blocks("{%block%}")) == [(0, ""), (2, "block"), (9, "")]
+    assert list(iter_template_blocks("prefix{%block%}")) == [(0, "prefix"), (8, "block"), (15, "")]
+    assert list(iter_template_blocks("{%block%}postfix")) == [(0, ""), (2, "block"), (9, "postfix")]
+    assert list(iter_template_blocks("{%%}")) == [(0, ""), (2, ""), (4, "")]
     with pytest.raises(ValueError):
         list(iter_template_blocks("{%}"))
-    assert list(iter_template_blocks("{%{%%}")) == ["", "{%", ""]
-    assert list(iter_template_blocks("{%\\{%%}")) == ["", "\\{%", ""]
-    assert list(iter_template_blocks("{%\\%}%}")) == ["", "%}", ""]
-    assert list(iter_template_blocks("{%\\%}\\%}%}")) == ["", "%}%}", ""]
-    assert list(iter_template_blocks("{%\\{%%}")) == ["", "\\{%", ""]
+    assert list(iter_template_blocks("{%{%%}")) == [(0, ""), (2, "{%"), (6, "")]
+    assert list(iter_template_blocks("{%\\{%%}")) == [(0, ""), (2, "\\{%"), (7, "")]
+    assert list(iter_template_blocks("{%\\%}%}")) == [(0, ""), (2, "%}"), (7, "")]
+    assert list(iter_template_blocks("{%\\%}\\%}%}")) == [(0, ""), (2, "%}%}"), (10, "")]
+    assert list(iter_template_blocks("{%\\{%%}")) == [(0, ""), (2, "\\{%"), (7, "")]
 
 
 def test_split_assignment():

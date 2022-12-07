@@ -1,31 +1,22 @@
-import tempfile
 from types import FunctionType
-import uuid
 
 from .parsing import split_assignment, iter_template_blocks
 
 
 class EvalBlock:
-    def __init__(self, code, name=None, source="<unknown>"):
+    def __init__(self, code, name):
         """Represents a statement that can be evaluated"""
         self.code = code
-        if name is None:
-            name = str(uuid.uuid4())
         self.name = name
-        self.source = source
 
     @classmethod
-    def from_string(cls, text, debug=True, extra_s=""):
+    def from_string(cls, text, defined_file="unknown", defined_line="u", defined_char="u"):
         name, text = split_assignment(text)
-        if debug:
-            f = tempfile.NamedTemporaryFile('w+')
-            f.write(text)
-            f.seek(0)
-            f_name = f.name
-        else:
-            f_name = "<string>"
-        code = compile(text, f_name, "eval")
-        return cls(code, name, source=f"{text}{extra_s}")
+        if name is None:
+            defined_file = ''.join(i if i.isalnum() else "_" for i in defined_file)
+            name = f"anonymous_{defined_file}_l{defined_line}c{defined_char}"
+        code = compile(text, "<string>", "eval")
+        return cls(code, name)
 
     @property
     def required(self):
@@ -42,10 +33,10 @@ class EvalBlock:
         return func()
 
     def __str__(self):
-        return f"{self.name} = {self.source}"
+        return self.name
 
     def __repr__(self):
-        return f"Statement({self.__str__()})"
+        return f"EvalBlock('{self.__str__()}')"
 
 
 class Template:
@@ -58,10 +49,16 @@ class Template:
     def from_text(cls, name, text):
         itr = iter_template_blocks(text)
         chunks = []
-        for i in itr:
-            chunks.append(i)
+        for pos, i in itr:
+            chunks.append(i)  # regular text block
             try:
-                chunks.append(EvalBlock.from_string(next(itr), extra_s=f" [defined in {repr(name)}]"))
+                pos, i = next(itr)  # eval block
+                chunks.append(EvalBlock.from_string(
+                    i,
+                    defined_file=name,
+                    defined_line=text[:pos].count("\n") + 1,
+                    defined_char=pos - text[:pos].rfind("\n"),
+                ))
             except StopIteration:
                 pass
         return cls(name, chunks)
@@ -87,3 +84,9 @@ class Template:
 
     def __repr__(self):
         return f"GridFile(name={repr(self.name)}, chunks=[{len(self.chunks)} chunks])"
+
+
+def variable_list_template(variable_names, name=".variables"):
+    """Constructs a template with variable names"""
+    # TODO: fix a hack here var = var?
+    return Template.from_text(name, '\n'.join(f"{i} = {{% {i} = {i} %}}" for i in variable_names))

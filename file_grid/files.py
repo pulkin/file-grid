@@ -69,4 +69,7 @@ def write_grid(directory_name, stack, files_static, files_grid, root):
         dst.parent.mkdir(parents=True, exist_ok=True)
         with open(dst, "w") as ff:
             f.write(stack, ff)
-        shutil.copystat(src, dst)
+        try:
+            shutil.copystat(src, dst)
+        except FileNotFoundError:
+            pass  # virtual file

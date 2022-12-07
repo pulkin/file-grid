@@ -46,35 +46,35 @@ def iter_template_blocks(text, left="{%", right="%}", escape="\\"):
         while True:
             pattern_start = text.find(_pattern, pos)
             if pattern_start < 0:
-                yield text[pos:]
+                yield pos, text[pos:]
                 pos = len(text)
-                yield None  # indicates end of file without finding the pattern
+                yield pos, None  # indicates end of file without finding the pattern
                 break
             elif _is_escaped_at(pattern_start):
-                yield text[pos:pattern_start - len_esc]
-                yield _pattern
+                yield pos, text[pos:pattern_start - len_esc]
+                yield pattern_start, _pattern
                 pos = pattern_start + len_pattern
             else:
-                yield text[pos:pattern_start]
+                yield pos, text[pos:pattern_start]
                 pos = pattern_start + len_pattern
                 break
 
     while True:
         # find left
         pieces = list(_iter_until(left))
-        if pieces[-1] is None:  # nothing left
-            yield ''.join(pieces[:-1])
+        if pieces[-1][1] is None:  # nothing left
+            yield pieces[0][0], ''.join(i for _, i in pieces[:-1])
             break
         else:
-            yield ''.join(pieces)
+            yield pieces[0][0], ''.join(i for _, i in pieces)
         start = pos
 
         # find right
         pieces = list(_iter_until(right))
-        if pieces[-1] is None:  # did not find end of template
+        if pieces[-1][1] is None:  # did not find end of template
             raise ValueError(f"missing closing bracket for template starting at {start}:\n{repr_pos(text, start)}")
         else:
-            yield ''.join(pieces)
+            yield pieces[0][0], ''.join(i for _, i in pieces)
 
 
 def split_assignment(text, pattern=re.compile(r"^\s*(?P<name>[\w_]+)\s*=")):

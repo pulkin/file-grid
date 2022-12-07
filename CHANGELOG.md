@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- create file `.variables` with all variables computed per grid folder
 
 ### Fixed
 

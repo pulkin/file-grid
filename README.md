@@ -161,13 +161,16 @@ blocks belong to the same scope and all named blocks are shared).
 TBD: not implemented yet.
 Currently, `str(...)` is used when writing expanded expressions.
 
-### Other details
+### Useful implementation details
 
 - All python types are supported: integers, floats, strings, objects, etc.
   For example, this is a valid eval block: `{% ['a', 2, 3.] %}`.
-- Anonymous eval blocks such as the above are assigned a random UUID.
+- Anonymous eval blocks such as the above are assigned an
+  `anonymous_{file}_{line}_{char}` name.
 - Currently, only `range` and `linspace` are available as builtins.
   TBD: will be fixed.
+- To see variable values after the grid was created simply look into
+  `.variables` file of the grid folder.
 - A two-phase scheme is used when evaluating blocks.
   At the first stage, blocks without dependencies are identified and
   computed.

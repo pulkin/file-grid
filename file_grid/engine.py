@@ -10,7 +10,7 @@ from warnings import warn
 
 from .algorithm import eval_sort, eval_all
 from .tools import combinations
-from .template import EvalBlock
+from .template import EvalBlock, variable_list_template
 from .grid_builtins import builtins
 from .files import match_files, match_template_files, write_grid
 
@@ -170,6 +170,8 @@ class Engine:
 
         # Figure out order
         ordered_statements = eval_sort(statements_dependent, reserved_names | set(statements_core))
+        # Add variables template file
+        files_grid.append(variable_list_template(sorted(statements.keys())))
         # Iterate over possible combinations and write a grid
         for stack in combinations(statements_core):
             scratch = self.folder_name(index)
