@@ -10,22 +10,33 @@ What it is
 `grid` is a command-line tool to create *many* copies of *similar* files
 using a **template** language.
 
-`grid` scans current folder for template pieces and expands them.
-As a result, copies of template files are created where template blocks
-(eval blocks) are substituted with their corresponding computed values.
+`grid` scans current folder for template files with evaluate blocks and
+expands them.
+`grid` creates copies of template files and substitutes template blocks
+(eval blocks) with their corresponding computed values.
+As a result, text files with eval blocks such as
+`something = {% range(3, 8) %}` replicate into 5 separate files containing
+`something = 3`, `something = 4`, etc.
 
 Install
 -------
 
-Install from git
+Install from pypi
+
+```bash
+pip install file-grid
+```
+
+Install from git using pip
 
 ```bash
 pip install git+https://github.com/pulkin/file-grid.git#egg=file_grid
 ```
 
-Build and install from source
+Build and install from source manually
 
 ```bash
+git clone https://github.com/pulkin/file-grid.git
 pip install build
 python -m build
 pip install dist/*.tar.gz
@@ -35,13 +46,13 @@ Run
 ---
 
 ```bash
-python -m file_grid
+python -m file_grid --help
 ```
 
 or simply
 
 ```bash
-grid
+grid --help
 ```
 
 if your `PATH` includes python `bin` folder.
