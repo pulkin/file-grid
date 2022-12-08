@@ -37,9 +37,12 @@ def test_iter_template_blocks():
 
 
 def test_split_assignment():
-    assert split_assignment("abc") == (None, "abc")
-    assert split_assignment("  abc") == (None, "abc")
-    assert split_assignment("a = b") == ("a", "b")
-    assert split_assignment("a = b = c") == ("a", "b = c")
+    assert split_assignment("abc") == (None, None, "abc")
+    assert split_assignment("  abc") == (None, None, "abc")
+    assert split_assignment("a = b") == ("a", None, "b")
+    assert split_assignment("a = b = c") == ("a", None, "b = c")
     with pytest.raises(ValueError):
         split_assignment("2a = b")
+
+    assert split_assignment("abc:format") == (None, "format", "abc")
+    assert split_assignment("x = abc : format") == ("x", " format", "abc")

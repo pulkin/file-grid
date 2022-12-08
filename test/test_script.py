@@ -407,3 +407,37 @@ def test_non_recursive(grid_script):
     assert e.returncode == 1
     assert e.stderr.endswith("pattern '*' in '.' matched 0 files (matched total: 2, files: 0)\n")
     assert e.stdout == ""
+
+
+def test_formatting(grid_script):
+    """Formatting"""
+    base = {"file_with_linspace": "{% linspace(0, 1, 4):.2f %}"}
+    root, output = run_grid(base, grid_script, "new")
+    assert output == ""
+    assert read_folder(root) == {
+        **base,
+        "grid0/file_with_linspace": "0.00",
+        "grid0/.variables": "anonymous_file_with_linspace_l1c3 = 0.0",
+        "grid1/file_with_linspace": "0.33",
+        "grid1/.variables": "anonymous_file_with_linspace_l1c3 = 0.3333333333333333",
+        "grid2/file_with_linspace": "0.67",
+        "grid2/.variables": "anonymous_file_with_linspace_l1c3 = 0.6666666666666666",
+        "grid3/file_with_linspace": "1.00",
+        "grid3/.variables": "anonymous_file_with_linspace_l1c3 = 1.0",
+    }
+
+
+def test_suppress(grid_script):
+    """Formatting"""
+    base = {"file_with_suppressed": "nothing {% a = [1, 2, 3]:suppress %} here"}
+    root, output = run_grid(base, grid_script, "new")
+    assert output == ""
+    assert read_folder(root) == {
+        **base,
+        "grid0/file_with_suppressed": "nothing  here",
+        "grid0/.variables": "a = 1",
+        "grid1/file_with_suppressed": "nothing  here",
+        "grid1/.variables": "a = 2",
+        "grid2/file_with_suppressed": "nothing  here",
+        "grid2/.variables": "a = 3",
+    }

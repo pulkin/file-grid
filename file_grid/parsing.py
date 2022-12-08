@@ -77,11 +77,23 @@ def iter_template_blocks(text, left="{%", right="%}", escape="\\"):
             yield pieces[0][0], ''.join(i for _, i in pieces)
 
 
-def split_assignment(text, pattern=re.compile(r"^\s*(?P<name>[\w_]+)\s*=")):
-    match = re.match(pattern, text)
-    if match is None:
-        return None, text.strip()
-    name, text = match.group("name"), text[match.end():]
-    if name[0] in "0123456789":
-        raise ValueError(f"invalid variable name: {name}")
-    return name, text.strip()
+def split_assignment(text, name_pattern=re.compile(r"^\s*(?P<name>[\w_]+)\s*="),
+                     format_pattern=re.compile(r"\:(?P<format>[\w_\.\s]+)$")):
+    name_match = re.search(name_pattern, text)
+    if name_match is None:
+        name = None
+        start = 0
+    else:
+        name = name_match.group("name")
+        if name[0] in "0123456789":
+            raise ValueError(f"invalid variable name: {name}")
+        start = name_match.end()
+
+    format_match = re.search(format_pattern, text)
+    if format_match is None:
+        fmt = None
+        end = len(text)
+    else:
+        fmt = format_match.group("format").rstrip()
+        end = format_match.start()
+    return name, fmt, text[start:end].strip()

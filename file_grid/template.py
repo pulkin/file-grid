@@ -4,19 +4,20 @@ from .parsing import split_assignment, iter_template_blocks
 
 
 class EvalBlock:
-    def __init__(self, code, name):
+    def __init__(self, code, name, fmt):
         """Represents a statement that can be evaluated"""
         self.code = code
         self.name = name
+        self.fmt = fmt
 
     @classmethod
     def from_string(cls, text, defined_file="unknown", defined_line="u", defined_char="u"):
-        name, text = split_assignment(text)
+        name, fmt, text = split_assignment(text)
         if name is None:
             defined_file = ''.join(i if i.isalnum() else "_" for i in defined_file)
             name = f"anonymous_{defined_file}_l{defined_line}c{defined_char}"
         code = compile(text, "<string>", "eval")
-        return cls(code, name)
+        return cls(code, name, fmt)
 
     @property
     def required(self):
@@ -31,6 +32,14 @@ class EvalBlock:
             raise ValueError(f"missing following names: {', '.join(map(repr, delta))}")
         func = FunctionType(self.code, names)
         return func()
+
+    def format_value(self, val):
+        if self.fmt == "suppress":
+            return ""
+        elif self.fmt is None:
+            return str(val)
+        else:
+            return f"{val:{self.fmt}}"
 
     def __str__(self):
         return self.name
@@ -72,7 +81,7 @@ class Template:
             if isinstance(chunk, str):
                 f.write(chunk)
             elif isinstance(chunk, EvalBlock):
-                f.write(str(stack[chunk.name]))  # TODO: proper formatting
+                f.write(chunk.format_value(stack[chunk.name]))
             else:
                 raise NotImplementedError(f"unknown {chunk=}")
 
