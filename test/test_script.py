@@ -66,7 +66,7 @@ def test_raise_empty(grid_script, files):
     assert e.stdout == ""
 
 
-def test_raise_non_existent_run(grid_script):
+def test_raise_run_no_grid(grid_script):
     """Empty setup"""
     with pytest.raises(CalledProcessError) as e_info:
         run_grid({}, grid_script, "run", "something")
@@ -74,6 +74,69 @@ def test_raise_non_existent_run(grid_script):
     assert e.returncode == 1
     assert e.stderr.endswith("Grid file does not exit: '.grid'\n")
     assert e.stdout == ""
+
+
+def test_raise_run_no_executable(grid_script):
+    """Errors with grid run"""
+    base = {"file_with_list": "{% a = [1, 2, 'a'] %}"}
+    root, output = run_grid(base, grid_script, "new")
+    assert output == ""
+    assert read_folder(root) == {
+        **base,
+        "grid0/file_with_list": "1",
+        "grid0/.variables": "a = 1",
+        "grid1/file_with_list": "2",
+        "grid1/.variables": "a = 2",
+        "grid2/file_with_list": "a",
+        "grid2/.variables": "a = a",
+    }
+
+    with pytest.raises(CalledProcessError) as e_info:
+        run_grid(root, grid_script, "run", "something-non-existent")
+    e = e_info.value
+    assert e.returncode == 1
+    assert e.stderr.endswith("No such file or directory: 'something-non-existent'\n")
+    assert e.stdout == "\n".join([
+        "grid0: something-non-existent",
+        "something-non-existent: file not found (working directory 'grid0')",
+        "grid1: something-non-existent",
+        "something-non-existent: file not found (working directory 'grid1')",
+        "grid2: something-non-existent",
+        "something-non-existent: file not found (working directory 'grid2')\n",
+    ])
+
+
+def test_raise_run_subprocess_error(grid_script):
+    """Errors with grid run"""
+    base = {"file_with_list": "{% a = [1, 2, 'a'] %}"}
+    root, output = run_grid(base, grid_script, "new")
+    assert output == ""
+    assert read_folder(root) == {
+        **base,
+        "grid0/file_with_list": "1",
+        "grid0/.variables": "a = 1",
+        "grid1/file_with_list": "2",
+        "grid1/.variables": "a = 2",
+        "grid2/file_with_list": "a",
+        "grid2/.variables": "a = a",
+    }
+
+    with pytest.raises(CalledProcessError) as e_info:
+        run_grid(root, grid_script, "run", "cat", "non-existent")
+    e = e_info.value
+    assert e.returncode == 1
+    assert e.stderr.endswith("Command \'[\'cat\', \'non-existent\']\' returned non-zero exit status 1.\n")
+    assert e.stdout == "\n".join([
+        "grid0: cat non-existent",
+        "cat non-existent: process error (working directory 'grid0')",
+        "cat: non-existent: No such file or directory",
+        "grid1: cat non-existent",
+        "cat non-existent: process error (working directory 'grid1')",
+        "cat: non-existent: No such file or directory",
+        "grid2: cat non-existent",
+        "cat non-existent: process error (working directory 'grid2')",
+        "cat: non-existent: No such file or directory\n",
+    ])
 
 
 def test_raise_non_existent_distribute(grid_script):
@@ -129,11 +192,11 @@ def test_list(grid_script):
 
     root, output = run_grid(root, grid_script, "run", "cat", "file_with_list")
     assert output == "\n".join([
-        "grid0",
+        "grid0: cat file_with_list",
         "1",
-        "grid1",
+        "grid1: cat file_with_list",
         "2",
-        "grid2",
+        "grid2: cat file_with_list",
         "a\n",
     ])
     yield
@@ -189,11 +252,11 @@ def test_list_missing(grid_script):
     assert e.returncode == 1
     assert e.stderr.endswith("No such file or directory: \'grid1\'\n")
     assert e.stdout == "\n".join([
-        "grid0",
+        "grid0: cat file_with_list",
         "1",
-        "grid1",
-        "Failed to execute cat file_with_list (working directory 'grid1')",
-        "grid2",
+        "grid1: cat file_with_list",
+        "cat file_with_list: file not found (working directory 'grid1')",
+        "grid2: cat file_with_list",
         "a\n",
     ])
     yield

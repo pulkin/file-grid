@@ -3,6 +3,7 @@ import json
 import logging
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from functools import reduce
 from operator import mul
@@ -249,11 +250,19 @@ class Engine:
         exceptions = []
         for cwd in current_state["grid"]:
             try:
-                print(cwd)
+                print(f'{cwd}: {" ".join(self.extra)}')
                 print(subprocess.check_output(self.extra, cwd=cwd, stderr=subprocess.PIPE, text=True))
-            except (FileNotFoundError, subprocess.SubprocessError) as e:
-                print(f"Failed to execute {' '.join(self.extra)} (working directory {repr(cwd)})")
-                logging.exception(f"Failed to execute {' '.join(self.extra)} (working directory {repr(cwd)})")
+
+            except FileNotFoundError as e:
+                print(f"{' '.join(self.extra)}: file not found (working directory {repr(cwd)})")
+                logging.exception(f"{' '.join(self.extra)}: file not found (working directory {repr(cwd)})")
+                exceptions.append(e)
+
+            except subprocess.CalledProcessError as e:
+                print(f"{' '.join(self.extra)}: process error (working directory {repr(cwd)})")
+                print(e.stdout, end="")
+                print(e.stderr, end="")
+                logging.exception(f"{' '.join(self.extra)}: process error (working directory {repr(cwd)})")
                 exceptions.append(e)
         if len(exceptions) > 0:
             raise exceptions[-1]
