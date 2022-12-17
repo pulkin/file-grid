@@ -72,10 +72,6 @@ class Engine:
         with open(self.state_fn, "w") as f:
             json.dump(state, f, indent=4)
 
-    def folder_name(self, index):
-        """Folder name convention"""
-        return self.name.format(id=index)
-
     def match_static(self):
         logging.info("Matching static files")
         result = match_files(self.static_files, allow_empty=True, recursive=self.recursive)
@@ -164,7 +160,7 @@ class Engine:
         files_grid.append(variable_list_template(sorted(statements.keys())))
         # Iterate over possible combinations and write a grid
         for stack in combinations(statements_core):
-            scratch = self.folder_name(index)
+            scratch = self.name.format(id=index)
             stack["__grid_folder_name__"] = scratch
             stack["__grid_id__"] = index
 
