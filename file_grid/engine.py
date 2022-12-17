@@ -16,7 +16,6 @@ from .grid_builtins import builtins
 from .files import match_files, match_template_files, write_grid
 
 arg_parser = argparse.ArgumentParser(description="Creates arrays [grids] of similar files and folders")
-arg_parser.add_argument("-f", "--files", nargs="+", help="files to be processed", metavar="FILE", default=tuple())
 arg_parser.add_argument("-t", "--static", nargs="+", help="files to be copied", metavar="FILE", default=tuple())
 arg_parser.add_argument("-r", "--recursive", help="visit sub-folders when matching file names", action="store_true")
 arg_parser.add_argument("-n", "--name", help="grid folder naming pattern", metavar="PATTERN", default="grid%d")
@@ -29,10 +28,9 @@ arg_parser.add_argument("extra", nargs="*", help="extra action arguments for 'ru
 
 
 class Engine:
-    def __init__(self, action, extra, template_files, static_files, root, recursive, name, max_size, state_fn, log_fn):
+    def __init__(self, action, extra, static_files, root, recursive, name, max_size, state_fn, log_fn):
         self.action = action
         self.extra = extra
-        self.template_files = template_files
         self.static_files = static_files
         self.root = root
         self.recursive = recursive
@@ -46,7 +44,6 @@ class Engine:
         return cls(
             action=options.action,
             extra=options.extra,
-            template_files=options.files,
             static_files=options.static,
             root=options.root,
             recursive=options.recursive,
@@ -87,13 +84,10 @@ class Engine:
 
     def match_templates(self, exclude):
         logging.info("Matching template files")
-        request = []
-        if self.action == "distribute":
-            request = (*self.template_files, *self.extra)
-        elif self.action == "new":
-            request = self.template_files
-            if len(request) == 0:
-                request = "*",
+        if len(self.extra) == 0:
+            request = "*",
+        else:
+            request = self.extra
         result = match_template_files(request, recursive=self.recursive, exclude=exclude)
         for i in result:
             logging.info(f"  {str(i)}")
@@ -310,17 +304,11 @@ def grid_run(options=None):
     if options is None:
         options = arg_parser.parse_args()
 
-    if options.action == "new":
-        if len(options.extra) > 0:
-            arg_parser.error("usage: grid new (with no extra arguments)")
-    elif options.action == "run":
+    if options.action in ("new", "run", "distribute"):
         if len(options.extra) == 0:
-            arg_parser.error("usage: grid run COMMAND")
+            arg_parser.error(f"usage: grid {options.action} COMMAND or FILE(s)")
     elif options.action == "cleanup":
         if len(options.extra) > 0:
             arg_parser.error("usage: grid cleanup (no extra arguments)")
-    elif options.action == "distribute":
-        if len(options.extra) == 0:
-            arg_parser.error("usage: grid distribute FILE [FILE ...]")
 
     return Engine.from_argparse(options).run()

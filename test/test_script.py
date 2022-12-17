@@ -58,7 +58,7 @@ def read_folder(root: Path, exclude=(".grid", ".grid.log")):
 def test_raise_empty(grid_script, files):
     """Dummy setup with a single text file"""
     with pytest.raises(CalledProcessError) as e_info:
-        run_grid(files, grid_script, "new")
+        run_grid(files, grid_script, "new", "*")
     e = e_info.value
     assert e.returncode == 1
     assert e.stderr.endswith(f"pattern '*' in '.' matched 0 files (matched total: {len(files) + 1}, "
@@ -79,7 +79,7 @@ def test_raise_run_no_grid(grid_script):
 def test_raise_run_no_executable(grid_script):
     """Errors with grid run"""
     base = {"file_with_list": "{% a = [1, 2, 'a'] %}"}
-    root, output = run_grid(base, grid_script, "new")
+    root, output = run_grid(base, grid_script, "new", "*")
     assert output == ""
     assert read_folder(root) == {
         **base,
@@ -109,7 +109,7 @@ def test_raise_run_no_executable(grid_script):
 def test_raise_run_subprocess_error(grid_script):
     """Errors with grid run"""
     base = {"file_with_list": "{% a = [1, 2, 'a'] %}"}
-    root, output = run_grid(base, grid_script, "new")
+    root, output = run_grid(base, grid_script, "new", "*")
     assert output == ""
     assert read_folder(root) == {
         **base,
@@ -152,7 +152,7 @@ def test_raise_non_existent_distribute(grid_script):
 def test_raise_grid_folder_exists(grid_script):
     """Conflicting folder setup"""
     with pytest.raises(CalledProcessError) as e_info:
-        run_grid({"some_list": "{% [1, 2, 3] %}", "grid1": ""}, grid_script, "new")
+        run_grid({"some_list": "{% [1, 2, 3] %}", "grid1": ""}, grid_script, "new", "*")
     e = e_info.value
     assert e.returncode == 1
     assert e.stderr.endswith("file or folder 'grid1' already exists\n")
@@ -162,7 +162,7 @@ def test_raise_grid_folder_exists(grid_script):
 def test_const(grid_script):
     """Constant expressions"""
     base = {"file_with_const": "{% 1 %} {% 'a' %} {% 3 %}"}
-    root, output = run_grid(base, grid_script, "new")
+    root, output = run_grid(base, grid_script, "new", "*")
     assert output == ""
     assert read_folder(root) == {
         **base,
@@ -177,7 +177,7 @@ def test_const(grid_script):
 def test_list(grid_script):
     """List expressions as well as cleanup"""
     base = {"file_with_list": "{% a = [1, 2, 'a'] %}", "some_other_file": "abc"}
-    root, output = run_grid(base, grid_script, "new")
+    root, output = run_grid(base, grid_script, "new", "*")
     assert output == ""
     assert read_folder(root) == {
         **base,
@@ -230,7 +230,7 @@ def test_list(grid_script):
 def test_list_missing(grid_script):
     """List expressions as well as cleanup"""
     base = {"file_with_list": "{% a = [1, 2, 'a'] %}", "some_other_file": "abc"}
-    root, output = run_grid(base, grid_script, "new")
+    root, output = run_grid(base, grid_script, "new", "*")
     assert output == ""
     assert read_folder(root) == {
         **base,
@@ -294,7 +294,7 @@ def test_list_missing(grid_script):
 def test_range_1(grid_script):
     """Range expressions"""
     base = {"file_with_range": "r={% range(5) %}"}
-    root, output = run_grid(base, grid_script, "new")
+    root, output = run_grid(base, grid_script, "new", "*")
     assert output == ""
     assert read_folder(root) == {
         **base,
@@ -314,7 +314,7 @@ def test_range_1(grid_script):
 def test_range_2(grid_script):
     """Range expressions"""
     base = {"file_with_range": "r={% range(5, 6) %}"}
-    root, output = run_grid(base, grid_script, "new")
+    root, output = run_grid(base, grid_script, "new", "*")
     assert output == ""
     assert read_folder(root) == {
         **base,
@@ -326,7 +326,7 @@ def test_range_2(grid_script):
 def test_range_3(grid_script):
     """Range expressions"""
     base = {"file_with_range": "r={% range(5, 10, 3) %}"}
-    root, output = run_grid(base, grid_script, "new")
+    root, output = run_grid(base, grid_script, "new", "*")
     assert output == ""
     assert read_folder(root) == {
         **base,
@@ -340,7 +340,7 @@ def test_range_3(grid_script):
 def test_linspace(grid_script):
     """Linspace expressions"""
     base = {"file_with_linspace": "l={% linspace(5, 10, 3) %}"}
-    root, output = run_grid(base, grid_script, "new")
+    root, output = run_grid(base, grid_script, "new", "*")
     assert output == ""
     assert read_folder(root) == {
         **base,
@@ -356,7 +356,7 @@ def test_linspace(grid_script):
 def test_dependency(grid_script):
     """Dependency expressions"""
     base = {"file_with_dependency": "{% a = [1, 2, 3] %}, {% b = 2 * a %}, {% c = 3 * b %}"}
-    root, output = run_grid(base, grid_script, "new")
+    root, output = run_grid(base, grid_script, "new", "*")
     assert output == ""
     assert read_folder(root) == {
         **base,
@@ -373,7 +373,7 @@ def test_loop_dependency(grid_script):
     """Loop dependency expressions"""
     base = {"file_with_dependency": "{% a = b %}, {% b = 2 * a %} {% x = [1, 2] %}"}
     with pytest.raises(CalledProcessError) as e_info:
-        run_grid(base, grid_script, "new")
+        run_grid(base, grid_script, "new", "*")
     e = e_info.value
     assert e.returncode == 1
     assert e.stderr.endswith("2 expressions cannot be evaluated:\n"
@@ -390,7 +390,7 @@ def test_explicit_files(grid_script):
         "file_exclude": "{% [3, 4] %}",
         "file_exclude_static": "def",
     }
-    root, output = run_grid(base, grid_script, "new", "--files", "file_include", "--static", "file_include_static")
+    root, output = run_grid(base, grid_script, "new", "file_include", "--static", "file_include_static")
     assert output == ""
     assert read_folder(root) == {
         **base,
@@ -409,7 +409,7 @@ def test_static_files(grid_script):
         "file_with_list": "{% [1, 2] %}",
         "file_include_static": "abc {% [3, 4] %}",
     }
-    root, output = run_grid(base, grid_script, "new", "--static", "file_include_static")
+    root, output = run_grid(base, grid_script, "new", "*", "--static", "file_include_static")
     assert output == ""
     assert read_folder(root) == {
         **base,
@@ -426,7 +426,7 @@ def test_static_files(grid_script):
 def test_name(grid_script):
     """Prefix option"""
     base = {"file_with_list": "{% [1, 2, 'a'] %}"}
-    root, output = run_grid(base, grid_script, "new", "-n", "custom%d")
+    root, output = run_grid(base, grid_script, "new", "*", "-n", "custom%d")
     assert output == ""
     assert read_folder(root) == {
         **base,
@@ -448,7 +448,7 @@ def test_name(grid_script):
 def test_recursive(grid_script):
     """Prefix option"""
     base = {"sub/file_with_list": "{% [1, 2, 'a'] %}"}
-    root, output = run_grid(base, grid_script, "new", "-r")
+    root, output = run_grid(base, grid_script, "new", "*", "-r")
     assert output == ""
     assert read_folder(root) == {
         **base,
@@ -465,7 +465,7 @@ def test_non_recursive(grid_script):
     """Prefix option"""
     base = {"sub/file_with_list": "{% [1, 2, 'a'] %}"}
     with pytest.raises(CalledProcessError) as e_info:
-        run_grid(base, grid_script, "new")
+        run_grid(base, grid_script, "new", "*")
     e = e_info.value
     assert e.returncode == 1
     assert e.stderr.endswith("pattern '*' in '.' matched 0 files (matched total: 2, files: 0)\n")
@@ -475,7 +475,7 @@ def test_non_recursive(grid_script):
 def test_formatting(grid_script):
     """Formatting"""
     base = {"file_with_linspace": "{% linspace(0, 1, 4):.2f %}"}
-    root, output = run_grid(base, grid_script, "new")
+    root, output = run_grid(base, grid_script, "new", "*")
     assert output == ""
     assert read_folder(root) == {
         **base,
@@ -493,7 +493,7 @@ def test_formatting(grid_script):
 def test_suppress(grid_script):
     """Formatting"""
     base = {"file_with_suppressed": "nothing {% a = [1, 2, 3]:suppress %} here"}
-    root, output = run_grid(base, grid_script, "new")
+    root, output = run_grid(base, grid_script, "new", "*")
     assert output == ""
     assert read_folder(root) == {
         **base,
