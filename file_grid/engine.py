@@ -3,7 +3,6 @@ import json
 import logging
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 from functools import reduce
 from operator import mul
@@ -18,7 +17,7 @@ from .files import match_files, match_template_files, write_grid
 arg_parser = argparse.ArgumentParser(description="Creates arrays [grids] of similar files and folders")
 arg_parser.add_argument("-t", "--static", nargs="+", help="files to be copied", metavar="FILE", default=tuple())
 arg_parser.add_argument("-r", "--recursive", help="visit sub-folders when matching file names", action="store_true")
-arg_parser.add_argument("-n", "--name", help="grid folder naming pattern", metavar="PATTERN", default="grid%d")
+arg_parser.add_argument("-n", "--name", help="grid folder naming pattern", metavar="PATTERN", default="grid{id}")
 arg_parser.add_argument("-m", "--max", help="maximum allowed grid size", metavar="N", default=10_000)
 arg_parser.add_argument("-s", "--state", help="state file name", metavar="FILE", default=".grid")
 arg_parser.add_argument("-l", "--log", help="log file name", metavar="FILE", default=".grid.log")
@@ -72,7 +71,7 @@ class Engine:
 
     def folder_name(self, index):
         """Folder name convention"""
-        return self.name % index
+        return self.name.format(id=index)
 
     def match_static(self):
         logging.info("Matching static files")
@@ -132,7 +131,7 @@ class Engine:
 
     def check_folder_conflicts(self, *args):
         for i in range(*args):
-            p = Path(self.name % i)
+            p = Path(self.name.format(id=i))
             if p.exists():
                 raise RuntimeError(f"file or folder '{str(p)}' already exists")
 
