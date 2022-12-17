@@ -161,7 +161,6 @@ class Engine:
         # Iterate over possible combinations and write a grid
         for stack in combinations(statements_core):
             scratch = self.name.format(id=index)
-            stack["__grid_folder_name__"] = scratch
             stack["__grid_id__"] = index
 
             values = eval_all(ordered_statements, {**stack, **builtins})
