@@ -19,9 +19,12 @@ def setup_folder(files: dict, root=None):
     if root is None:
         root = Path(mkdtemp())
     for path, contents in files.items():
-        (root / path).parent.mkdir(parents=True, exist_ok=True)
-        with open(root / path, 'w') as f:
-            f.write(contents)
+        if contents is None:
+            (root / path).mkdir(parents=True, exist_ok=True)
+        else:
+            (root / path).parent.mkdir(parents=True, exist_ok=True)
+            with open(root / path, 'w') as f:
+                f.write(contents)
     return root
 
 
@@ -152,10 +155,10 @@ def test_raise_non_existent_distribute(grid_script):
 def test_raise_grid_folder_exists(grid_script):
     """Conflicting folder setup"""
     with pytest.raises(CalledProcessError) as e_info:
-        run_grid({"some_list": "{% [1, 2, 3] %}", "grid1": ""}, grid_script, "new", "*")
+        run_grid({"some_list": "{% [1, 2, 3] %}", "grid1/some_list": ""}, grid_script, "new", "*")
     e = e_info.value
     assert e.returncode == 1
-    assert e.stderr.endswith("file or folder 'grid1' already exists\n")
+    assert e.stderr.endswith("file or folder 'grid1/some_list' already exists\n")
     assert e.stdout == ""
 
 

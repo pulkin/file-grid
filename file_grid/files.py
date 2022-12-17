@@ -51,7 +51,7 @@ def _maybe_template(candidate):
 match_template_files = partial(match_files, apply=_maybe_template)
 
 
-def write_grid(directory_name, stack, files_static, files_grid, root):
+def write_grid(directory_name, stack, files_static, files_grid, root, force_overwrite=False):
     """Writes grid folder contents"""
     root = Path(root)
 
@@ -60,12 +60,16 @@ def write_grid(directory_name, stack, files_static, files_grid, root):
 
     for src in files_static:
         dst = _translate_path(src)
+        if dst.exists() and not force_overwrite:
+            raise FileExistsError(f"file '{dst}' already exists")
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
 
     for f in files_grid:
         src = f.name
         dst = _translate_path(src)
+        if dst.exists() and not force_overwrite:
+            raise FileExistsError(f"file or folder '{dst}' already exists")
         dst.parent.mkdir(parents=True, exist_ok=True)
         with open(dst, "w") as ff:
             f.write(stack, ff)

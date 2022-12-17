@@ -21,13 +21,14 @@ arg_parser.add_argument("-n", "--name", help="grid folder naming pattern", metav
 arg_parser.add_argument("-m", "--max", help="maximum allowed grid size", metavar="N", default=10_000)
 arg_parser.add_argument("-s", "--state", help="state file name", metavar="FILE", default=".grid")
 arg_parser.add_argument("-l", "--log", help="log file name", metavar="FILE", default=".grid.log")
+arg_parser.add_argument("-f", "--force", help="force overwrite", action="store_true")
 arg_parser.add_argument("--root", help="root folder for scanning/placing grid files", default=".")
 arg_parser.add_argument("action", help="action to perform", choices=["new", "run", "cleanup", "distribute"])
 arg_parser.add_argument("extra", nargs="*", help="extra action arguments for 'run' and 'distribute'")
 
 
 class Engine:
-    def __init__(self, action, extra, static_files, root, recursive, name, max_size, state_fn, log_fn):
+    def __init__(self, action, extra, static_files, root, recursive, name, max_size, state_fn, log_fn, force_overwrite):
         self.action = action
         self.extra = extra
         self.static_files = static_files
@@ -37,6 +38,7 @@ class Engine:
         self.max_size = max_size
         self.state_fn = state_fn
         self.log_fn = log_fn
+        self.force_overwrite = force_overwrite
 
     @classmethod
     def from_argparse(cls, options):
@@ -50,6 +52,7 @@ class Engine:
             max_size=options.max,
             state_fn=options.state,
             log_fn=options.log,
+            force_overwrite=options.force,
         )
 
     def setup_logging(self):
@@ -129,12 +132,6 @@ class Engine:
             raise RuntimeError(f"the total grid size {total} is above threshold {self.max_size}")
         return statements_core, statements_dependent, total
 
-    def check_folder_conflicts(self, *args):
-        for i in range(*args):
-            p = Path(self.name.format(id=i))
-            if p.exists():
-                raise RuntimeError(f"file or folder '{str(p)}' already exists")
-
     def run_new(self, builtins=builtins):
         """
         Performs the new action.
@@ -155,7 +152,6 @@ class Engine:
         statements_core, statements_dependent, total = self.group_statements(statements)
 
         # Read previous run
-        self.check_folder_conflicts(total)
         grid_state = {"grid": {}, "names": list(statements)}
         index = 0
 
@@ -176,7 +172,7 @@ class Engine:
             stack.update({statement.name: v for statement, v in zip(ordered_statements, values)})
             grid_state["grid"][scratch] = {"stack": stack}
             logging.info(f"  composing {scratch}")
-            write_grid(scratch, stack, files_static, files_grid, self.root)
+            write_grid(scratch, stack, files_static, files_grid, self.root, self.force_overwrite)
             index += 1
 
         # Save state
@@ -225,7 +221,7 @@ class Engine:
                 stack = v["stack"]
                 values = eval_all(ordered_statements, v["stack"])
                 stack.update({statement.name: v for statement, v in zip(ordered_statements, values)})
-                write_grid(k, stack, files_static, files_grid, self.root)
+                write_grid(k, stack, files_static, files_grid, self.root, self.force_overwrite)
             except Exception as e:
                 exceptions.append(e)
         if len(exceptions) > 0:
