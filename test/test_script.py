@@ -45,7 +45,7 @@ def run_grid(files, grid_script, *args, **kwargs):
         raise
 
 
-def read_folder(root: Path, exclude=(".grid.json", ".grid.log")):
+def read_folder(root: Path, exclude=(".grid", ".grid.json", ".grid.log")):
     """Reads the entire folder"""
     result = {
         str(i.relative_to(root)): open(i, "r").read() if i.is_file() else None

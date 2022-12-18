@@ -19,16 +19,18 @@ arg_parser.add_argument("-t", "--static", nargs="+", help="files to be copied", 
 arg_parser.add_argument("-r", "--recursive", help="visit sub-folders when matching file names", action="store_true")
 arg_parser.add_argument("-p", "--pattern", help="naming pattern", metavar="PATTERN", default="grid{id}/{name}")
 arg_parser.add_argument("-m", "--max", help="maximum allowed grid size", metavar="N", default=10_000)
-arg_parser.add_argument("-s", "--state", help="state file name", metavar="FILE", default=".grid.json")
-arg_parser.add_argument("-l", "--log", help="log file name", metavar="FILE", default=".grid.log")
 arg_parser.add_argument("-f", "--force", help="force overwrite", action="store_true")
+arg_parser.add_argument("--list", help="save list of created files and folders", metavar="FILE", default=".grid")
+arg_parser.add_argument("--json", help="save json file with information", metavar="FILE", default=".grid.json")
+arg_parser.add_argument("--log", help="save log file", metavar="FILE", default=".grid.log")
 arg_parser.add_argument("--root", help="root folder for scanning/placing grid files", default=".")
 arg_parser.add_argument("action", help="action to perform", choices=["new", "run", "cleanup", "distribute"])
 arg_parser.add_argument("extra", nargs="*", help="extra action arguments for 'run' and 'distribute'")
 
 
 class Engine:
-    def __init__(self, action, extra, static_files, root, recursive, naming_pattern, max_size, state_fn, log_fn, force_overwrite):
+    def __init__(self, action, extra, static_files, root, recursive, naming_pattern, max_size, list_fn, state_fn,
+                 log_fn, force_overwrite):
         self.action = action
         self.extra = extra
         self.static_files = static_files
@@ -36,6 +38,7 @@ class Engine:
         self.recursive = recursive
         self.naming_pattern = naming_pattern
         self.max_size = max_size
+        self.list_fn = list_fn
         self.state_fn = state_fn
         self.log_fn = log_fn
         self.force_overwrite = force_overwrite
@@ -50,7 +53,8 @@ class Engine:
             recursive=options.recursive,
             naming_pattern=options.pattern,
             max_size=options.max,
-            state_fn=options.state,
+            list_fn=options.list,
+            state_fn=options.json,
             log_fn=options.log,
             force_overwrite=options.force,
         )
@@ -158,6 +162,7 @@ class Engine:
         # Add variables template file
         files_grid.append(variable_list_template(sorted(statements.keys())))
         # Iterate over possible combinations and write a grid
+        files_created = []
         for index, stack in enumerate(combinations(statements_core)):
             scratch = str(Path(self.naming_pattern.format(id=index, name="")))
             stack["__grid_id__"] = index
@@ -166,11 +171,15 @@ class Engine:
             stack.update({statement.name: v for statement, v in zip(ordered_statements, values)})
             grid_state["grid"].append({"stack": stack, "location": scratch})
             logging.info(f"  composing {scratch}")
-            write_grid(self.naming_pattern.format(id=index, name="{name}"), stack, files_static, files_grid,
-                       self.root, self.force_overwrite)
+            files_created.extend(write_grid(self.naming_pattern.format(id=index, name="{name}"), stack, files_static,
+                                            files_grid, self.root, self.force_overwrite))
 
         # Save state
         self.save_state(grid_state)
+        # Save files created
+        with open(self.list_fn, 'w') as f:
+            for i in files_created:
+                f.write(str(i.absolute()) + "\n")
 
     def run_distribute(self):
         """
@@ -275,6 +284,7 @@ class Engine:
             logging.error(f"{len(exceptions)} errors occurred while removing grid folders")
         logging.info("Removing the data file")
         Path(self.state_fn).unlink()
+        Path(self.list_fn).unlink()
         if len(exceptions):
             raise exceptions[-1]
 

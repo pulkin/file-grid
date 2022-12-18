@@ -53,15 +53,25 @@ match_template_files = partial(match_files, apply=_maybe_template)
 
 def write_grid(name_pattern, stack, files_static, files_grid, root, force_overwrite=False):
     """Writes grid folder contents"""
+    result = []
     root = Path(root)
 
     def _translate_path(p):
         return Path(name_pattern.format(name=Path(p).relative_to(root)))
 
+    def _missing_dirs(what: Path):
+        missing = [what]
+        what = what.parent
+        while not what.exists():
+            missing.append(what)
+            what = what.parent
+        return missing[::-1]
+
     for src in files_static:
         dst = _translate_path(src)
         if dst.exists() and not force_overwrite:
             raise FileExistsError(f"file '{dst}' already exists")
+        result.extend(_missing_dirs(dst))
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
 
@@ -70,6 +80,7 @@ def write_grid(name_pattern, stack, files_static, files_grid, root, force_overwr
         dst = _translate_path(src)
         if dst.exists() and not force_overwrite:
             raise FileExistsError(f"file or folder '{dst}' already exists")
+        result.extend(_missing_dirs(dst))
         dst.parent.mkdir(parents=True, exist_ok=True)
         with open(dst, "w") as ff:
             f.write(stack, ff)
@@ -77,3 +88,5 @@ def write_grid(name_pattern, stack, files_static, files_grid, root, force_overwr
             shutil.copystat(src, dst)
         except FileNotFoundError:
             pass  # virtual file
+
+    return result
