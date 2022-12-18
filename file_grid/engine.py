@@ -19,7 +19,7 @@ arg_parser.add_argument("-t", "--static", nargs="+", help="files to be copied", 
 arg_parser.add_argument("-r", "--recursive", help="visit sub-folders when matching file names", action="store_true")
 arg_parser.add_argument("-p", "--pattern", help="naming pattern", metavar="PATTERN", default="grid{id}/{name}")
 arg_parser.add_argument("-m", "--max", help="maximum allowed grid size", metavar="N", default=10_000)
-arg_parser.add_argument("-s", "--state", help="state file name", metavar="FILE", default=".grid")
+arg_parser.add_argument("-s", "--state", help="state file name", metavar="FILE", default=".grid.json")
 arg_parser.add_argument("-l", "--log", help="log file name", metavar="FILE", default=".grid.log")
 arg_parser.add_argument("-f", "--force", help="force overwrite", action="store_true")
 arg_parser.add_argument("--root", help="root folder for scanning/placing grid files", default=".")

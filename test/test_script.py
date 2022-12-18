@@ -45,7 +45,7 @@ def run_grid(files, grid_script, *args, **kwargs):
         raise
 
 
-def read_folder(root: Path, exclude=(".grid", ".grid.log")):
+def read_folder(root: Path, exclude=(".grid.json", ".grid.log")):
     """Reads the entire folder"""
     result = {
         str(i.relative_to(root)): open(i, "r").read() if i.is_file() else None
@@ -75,7 +75,7 @@ def test_raise_run_no_grid(grid_script):
         run_grid({}, grid_script, "run", "something")
     e = e_info.value
     assert e.returncode == 1
-    assert e.stderr.endswith("Grid file does not exit: '.grid'\n")
+    assert e.stderr.endswith("Grid file does not exit: '.grid.json'\n")
     assert e.stdout == ""
 
 
@@ -148,7 +148,7 @@ def test_raise_non_existent_distribute(grid_script):
         run_grid({}, grid_script, "distribute", "something")
     e = e_info.value
     assert e.returncode == 1
-    assert e.stderr.endswith("Grid file does not exit: '.grid'\n")
+    assert e.stderr.endswith("Grid file does not exit: '.grid.json'\n")
     assert e.stdout == ""
 
 
@@ -426,7 +426,7 @@ def test_static_files(grid_script):
 
 
 @test_steps("grid new", "grid cleanup")
-def test_name(grid_script):
+def test_pattern(grid_script):
     """Prefix option"""
     base = {"file_with_list": "{% [1, 2, 'a'] %}"}
     root, output = run_grid(base, grid_script, "new", "*", "-p", "custom{id}/{name}")
