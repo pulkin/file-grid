@@ -214,7 +214,7 @@ class Engine:
 
         # Figure out order
         ordered_statements = eval_sort(statements_dependent, set(reserved_names | set(current_state["names"])))
-
+        files_created = []
         for index, grid_info in enumerate(current_state["grid"]):
             location = grid_info["location"]
             if not Path(location).is_dir():
@@ -225,12 +225,16 @@ class Engine:
                 stack = grid_info["stack"]
                 values = eval_all(ordered_statements, stack)
                 stack.update({statement.name: v for statement, v in zip(ordered_statements, values)})
-                write_grid(self.naming_pattern.format(id=index, name="{name}"), stack, files_static, files_grid,
-                           self.root, self.force_overwrite)
+                files_created.extend(write_grid(self.naming_pattern.format(id=index, name="{name}"), stack,
+                                                files_static, files_grid, self.root, self.force_overwrite))
             except Exception as e:
                 exceptions.append(e)
         if len(exceptions) > 0:
             raise exceptions[-1]
+
+        with open(self.list_fn, 'a') as f:
+            for i in files_created:
+                f.write(str(i.absolute()) + "\n")
 
     def run_exec(self):
         """
@@ -269,19 +273,21 @@ class Engine:
         Removes all grid folders and grid state file.
         """
         logging.info("Cleaning up")
-        current_state = self.load_state()
-        logging.info("Removing grid folders")
         exceptions = []
-        for grid_info in current_state["grid"]:
-            location = grid_info["location"]
-            try:
-                shutil.rmtree(location)
-                logging.info(f"  {location}")
-            except Exception as e:
-                exceptions.append(e)
-                logging.exception(f"Error while removing {location}")
+        with open(self.list_fn, 'r') as f:
+            for line in list(f)[::-1]:
+                path = Path(line[:-1])
+                logging.info(f"  {str(path)}")
+                try:
+                    if path.is_dir():
+                        path.rmdir()
+                    else:
+                        path.unlink()
+                except Exception as e:
+                    exceptions.append(e)
+                    logging.exception(f"Error while removing {str(path)}")
         if len(exceptions):
-            logging.error(f"{len(exceptions)} errors occurred while removing grid folders")
+            logging.error(f"{len(exceptions)} errors occurred while removing grid files")
         logging.info("Removing the data file")
         Path(self.state_fn).unlink()
         Path(self.list_fn).unlink()
