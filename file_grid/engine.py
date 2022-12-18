@@ -17,7 +17,7 @@ from .files import match_files, match_template_files, write_grid
 arg_parser = argparse.ArgumentParser(description="Creates arrays [grids] of similar files and folders")
 arg_parser.add_argument("-t", "--static", nargs="+", help="files to be copied", metavar="FILE", default=tuple())
 arg_parser.add_argument("-r", "--recursive", help="visit sub-folders when matching file names", action="store_true")
-arg_parser.add_argument("-n", "--name", help="grid folder naming pattern", metavar="PATTERN", default="grid{id}")
+arg_parser.add_argument("-p", "--pattern", help="naming pattern", metavar="PATTERN", default="grid{id}{name}")
 arg_parser.add_argument("-m", "--max", help="maximum allowed grid size", metavar="N", default=10_000)
 arg_parser.add_argument("-s", "--state", help="state file name", metavar="FILE", default=".grid")
 arg_parser.add_argument("-l", "--log", help="log file name", metavar="FILE", default=".grid.log")
@@ -28,13 +28,13 @@ arg_parser.add_argument("extra", nargs="*", help="extra action arguments for 'ru
 
 
 class Engine:
-    def __init__(self, action, extra, static_files, root, recursive, name, max_size, state_fn, log_fn, force_overwrite):
+    def __init__(self, action, extra, static_files, root, recursive, naming_pattern, max_size, state_fn, log_fn, force_overwrite):
         self.action = action
         self.extra = extra
         self.static_files = static_files
         self.root = root
         self.recursive = recursive
-        self.name = name
+        self.naming_pattern = naming_pattern
         self.max_size = max_size
         self.state_fn = state_fn
         self.log_fn = log_fn
@@ -48,7 +48,7 @@ class Engine:
             static_files=options.static,
             root=options.root,
             recursive=options.recursive,
-            name=options.name,
+            naming_pattern=options.pattern,
             max_size=options.max,
             state_fn=options.state,
             log_fn=options.log,
@@ -159,7 +159,7 @@ class Engine:
         files_grid.append(variable_list_template(sorted(statements.keys())))
         # Iterate over possible combinations and write a grid
         for index, stack in enumerate(combinations(statements_core)):
-            scratch = self.name.format(id=index)
+            scratch = self.naming_pattern.format(id=index, name="")
             stack["__grid_id__"] = index
 
             values = eval_all(ordered_statements, {**stack, **builtins})
