@@ -140,7 +140,7 @@ class Engine:
         files_grid = self.match_templates(files_static)
         statements = self.collect_statements(files_grid)
 
-        reserved_names = set(builtins) | {"__grid_folder_name__", "__grid_id__"}
+        reserved_names = set(builtins) | {"__grid_id__"}
         overlap = set(statements).intersection(reserved_names)
         if len(overlap) > 0:
             raise ValueError(f"the following names used in the grid are reserved: {', '.join(overlap)}")
@@ -186,7 +186,7 @@ class Engine:
         files_grid = self.match_templates(files_static)
         statements = self.collect_statements(files_grid)
 
-        reserved_names = set(builtins) | {"__grid_folder_name__", "__grid_id__"}
+        reserved_names = set(builtins) | {"__grid_id__"}
         overlap = set(statements).intersection(reserved_names)
         if len(overlap) > 0:
             raise ValueError(f"the following names used in the grid are reserved: {', '.join(overlap)}")
