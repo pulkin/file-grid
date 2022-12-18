@@ -148,8 +148,7 @@ class Engine:
         statements_core, statements_dependent, total = self.group_statements(statements)
 
         # Read previous run
-        grid_state = {"grid": {}, "names": list(statements)}
-        index = 0
+        grid_state = {"grid": [], "names": list(statements)}
 
         if len(statements_core) == 0:
             warn(f"No fixed groups found")
@@ -159,16 +158,15 @@ class Engine:
         # Add variables template file
         files_grid.append(variable_list_template(sorted(statements.keys())))
         # Iterate over possible combinations and write a grid
-        for stack in combinations(statements_core):
+        for index, stack in enumerate(combinations(statements_core)):
             scratch = self.name.format(id=index)
             stack["__grid_id__"] = index
 
             values = eval_all(ordered_statements, {**stack, **builtins})
             stack.update({statement.name: v for statement, v in zip(ordered_statements, values)})
-            grid_state["grid"][scratch] = {"stack": stack}
+            grid_state["grid"].append({"stack": stack, "location": scratch})
             logging.info(f"  composing {scratch}")
             write_grid(scratch, stack, files_static, files_grid, self.root, self.force_overwrite)
-            index += 1
 
         # Save state
         self.save_state(grid_state)
@@ -207,16 +205,17 @@ class Engine:
         # Figure out order
         ordered_statements = eval_sort(statements_dependent, set(reserved_names | set(current_state["names"])))
 
-        for k, v in current_state["grid"].items():
-            if not Path(k).is_dir():
-                logging.exception(f"Grid folder {k} does not exist")
-                exceptions.append(FileNotFoundError(f"No such file or directory: {repr(k)}"))
+        for grid_info in current_state["grid"]:
+            location = grid_info["location"]
+            if not Path(location).is_dir():
+                logging.exception(f"Grid folder {location} does not exist")
+                exceptions.append(FileNotFoundError(f"No such file or directory: {repr(location)}"))
                 continue
             try:
-                stack = v["stack"]
-                values = eval_all(ordered_statements, v["stack"])
+                stack = grid_info["stack"]
+                values = eval_all(ordered_statements, stack)
                 stack.update({statement.name: v for statement, v in zip(ordered_statements, values)})
-                write_grid(k, stack, files_static, files_grid, self.root, self.force_overwrite)
+                write_grid(location, stack, files_static, files_grid, self.root, self.force_overwrite)
             except Exception as e:
                 exceptions.append(e)
         if len(exceptions) > 0:
@@ -232,7 +231,8 @@ class Engine:
         current_state = self.load_state()
         logging.info(f"   grid folders: {len(current_state['grid'])}")
         exceptions = []
-        for cwd in current_state["grid"]:
+        for grid_info in current_state["grid"]:
+            cwd = grid_info["location"]
             try:
                 print(f'{cwd}: {" ".join(self.extra)}')
                 print(subprocess.check_output(self.extra, cwd=cwd, stderr=subprocess.PIPE, text=True))
@@ -261,13 +261,14 @@ class Engine:
         current_state = self.load_state()
         logging.info("Removing grid folders")
         exceptions = []
-        for f in current_state["grid"]:
+        for grid_info in current_state["grid"]:
+            location = grid_info["location"]
             try:
-                shutil.rmtree(f)
-                logging.info(f"  {f}")
+                shutil.rmtree(location)
+                logging.info(f"  {location}")
             except Exception as e:
                 exceptions.append(e)
-                logging.exception(f"Error while removing {f}")
+                logging.exception(f"Error while removing {location}")
         if len(exceptions):
             logging.error(f"{len(exceptions)} errors occurred while removing grid folders")
         logging.info("Removing the data file")
