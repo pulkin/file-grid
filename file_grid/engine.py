@@ -17,7 +17,7 @@ from .files import match_files, match_template_files, write_grid
 arg_parser = argparse.ArgumentParser(description="Creates arrays [grids] of similar files and folders")
 arg_parser.add_argument("-t", "--static", nargs="+", help="files to be copied", metavar="FILE", default=tuple())
 arg_parser.add_argument("-r", "--recursive", help="visit sub-folders when matching file names", action="store_true")
-arg_parser.add_argument("-p", "--pattern", help="naming pattern", metavar="PATTERN", default="grid{id}{name}")
+arg_parser.add_argument("-p", "--pattern", help="naming pattern", metavar="PATTERN", default="grid{id}/{name}")
 arg_parser.add_argument("-m", "--max", help="maximum allowed grid size", metavar="N", default=10_000)
 arg_parser.add_argument("-s", "--state", help="state file name", metavar="FILE", default=".grid")
 arg_parser.add_argument("-l", "--log", help="log file name", metavar="FILE", default=".grid.log")
@@ -159,14 +159,15 @@ class Engine:
         files_grid.append(variable_list_template(sorted(statements.keys())))
         # Iterate over possible combinations and write a grid
         for index, stack in enumerate(combinations(statements_core)):
-            scratch = self.naming_pattern.format(id=index, name="")
+            scratch = str(Path(self.naming_pattern.format(id=index, name="")))
             stack["__grid_id__"] = index
 
             values = eval_all(ordered_statements, {**stack, **builtins})
             stack.update({statement.name: v for statement, v in zip(ordered_statements, values)})
             grid_state["grid"].append({"stack": stack, "location": scratch})
             logging.info(f"  composing {scratch}")
-            write_grid(scratch, stack, files_static, files_grid, self.root, self.force_overwrite)
+            write_grid(self.naming_pattern.format(id=index, name="{name}"), stack, files_static, files_grid,
+                       self.root, self.force_overwrite)
 
         # Save state
         self.save_state(grid_state)
@@ -205,7 +206,7 @@ class Engine:
         # Figure out order
         ordered_statements = eval_sort(statements_dependent, set(reserved_names | set(current_state["names"])))
 
-        for grid_info in current_state["grid"]:
+        for index, grid_info in enumerate(current_state["grid"]):
             location = grid_info["location"]
             if not Path(location).is_dir():
                 logging.exception(f"Grid folder {location} does not exist")
@@ -215,7 +216,8 @@ class Engine:
                 stack = grid_info["stack"]
                 values = eval_all(ordered_statements, stack)
                 stack.update({statement.name: v for statement, v in zip(ordered_statements, values)})
-                write_grid(location, stack, files_static, files_grid, self.root, self.force_overwrite)
+                write_grid(self.naming_pattern.format(id=index, name="{name}"), stack, files_static, files_grid,
+                           self.root, self.force_overwrite)
             except Exception as e:
                 exceptions.append(e)
         if len(exceptions) > 0:

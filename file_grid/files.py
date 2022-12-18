@@ -51,12 +51,12 @@ def _maybe_template(candidate):
 match_template_files = partial(match_files, apply=_maybe_template)
 
 
-def write_grid(directory_name, stack, files_static, files_grid, root, force_overwrite=False):
+def write_grid(name_pattern, stack, files_static, files_grid, root, force_overwrite=False):
     """Writes grid folder contents"""
     root = Path(root)
 
     def _translate_path(p):
-        return root / directory_name / Path(p).relative_to(root)
+        return Path(name_pattern.format(name=Path(p).relative_to(root)))
 
     for src in files_static:
         dst = _translate_path(src)
