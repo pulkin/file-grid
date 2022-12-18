@@ -1,7 +1,6 @@
 import argparse
 import json
 import logging
-import shutil
 import subprocess
 from pathlib import Path
 from functools import reduce
@@ -24,8 +23,8 @@ arg_parser.add_argument("--list", help="save list of created files and folders",
 arg_parser.add_argument("--json", help="save json file with information", metavar="FILE", default=".grid.json")
 arg_parser.add_argument("--log", help="save log file", metavar="FILE", default=".grid.log")
 arg_parser.add_argument("--root", help="root folder for scanning/placing grid files", default=".")
-arg_parser.add_argument("action", help="action to perform", choices=["new", "run", "cleanup", "distribute"])
-arg_parser.add_argument("extra", nargs="*", help="extra action arguments for 'run' and 'distribute'")
+arg_parser.add_argument("action", help="action to perform", choices=["new", "run", "cleanup"])
+arg_parser.add_argument("extra", nargs="*", help="extra action arguments for 'new' and 'run'")
 
 
 class Engine:
@@ -114,7 +113,7 @@ class Engine:
 
         for name, statement in statements.items():
             logging.info(repr(statement))
-            if len(statement.names_missing(builtins)) == 0 and self.action != "distribute":
+            if len(statement.names_missing(builtins)) == 0:
                 logging.info("  core, evaluating ...")
                 result = statement.eval(builtins)
                 if "__len__" not in dir(result):
@@ -136,7 +135,7 @@ class Engine:
         """
         Performs the new action.
 
-        Creates an array of grid folders.
+        Creates an array of grid files.
         """
         logging.info("Creating a new grid")
 
@@ -177,61 +176,6 @@ class Engine:
         # Save state
         self.save_state(grid_state)
         # Save files created
-        with open(self.list_fn, 'w') as f:
-            for i in files_created:
-                f.write(str(i.absolute()) + "\n")
-
-    def run_distribute(self):
-        """
-        Runs grid distribute.
-
-        Distributes one or many files over the existing grid.
-        """
-        logging.info("Distributing over the existing grid")
-        current_state = self.load_state()
-        logging.info(f"   grid folders: {len(current_state['grid'])}")
-
-        files_static = self.match_static()
-        files_grid = self.match_templates(files_static)
-        statements = self.collect_statements(files_grid)
-
-        reserved_names = set(builtins) | {"__grid_id__"}
-        overlap = set(statements).intersection(reserved_names)
-        if len(overlap) > 0:
-            raise ValueError(f"the following names used in the grid are reserved: {', '.join(overlap)}")
-
-        statements_core, statements_dependent, total = self.group_statements(statements)
-        if len(statements_core) > 0:
-            raise ValueError(f"(new) core statements are not allowed when distributing: {', '.join(statements_core)}")
-        overlap = set(current_state["names"]).intersection(set(statements))
-        if len(overlap) > 0:
-            raise ValueError(f"new names overlap with the ones previously defined: {', '.join(overlap)}")
-        if len(statements_dependent) == 0:
-            warn("No dependent statements found. File(s) will be distributed as-is.")
-
-        logging.info(f"Distributing files into {len(current_state['grid'])} folders")
-        exceptions = []
-
-        # Figure out order
-        ordered_statements = eval_sort(statements_dependent, set(reserved_names | set(current_state["names"])))
-        files_created = []
-        for index, grid_info in enumerate(current_state["grid"]):
-            location = grid_info["location"]
-            if not Path(location).is_dir():
-                logging.exception(f"Grid folder {location} does not exist")
-                exceptions.append(FileNotFoundError(f"No such file or directory: {repr(location)}"))
-                continue
-            try:
-                stack = grid_info["stack"]
-                values = eval_all(ordered_statements, stack)
-                stack.update({statement.name: v for statement, v in zip(ordered_statements, values)})
-                files_created.extend(write_grid(self.naming_pattern.format(id=index, name="{name}"), stack,
-                                                files_static, files_grid, self.root, self.force_overwrite))
-            except Exception as e:
-                exceptions.append(e)
-        if len(exceptions) > 0:
-            raise exceptions[-1]
-
         with open(self.list_fn, 'a') as f:
             for i in files_created:
                 f.write(str(i.absolute()) + "\n")
@@ -274,18 +218,22 @@ class Engine:
         """
         logging.info("Cleaning up")
         exceptions = []
+        processed = set()  # there may be duplicates
         with open(self.list_fn, 'r') as f:
             for line in list(f)[::-1]:
-                path = Path(line[:-1])
-                logging.info(f"  {str(path)}")
-                try:
-                    if path.is_dir():
-                        path.rmdir()
-                    else:
-                        path.unlink()
-                except Exception as e:
-                    exceptions.append(e)
-                    logging.exception(f"Error while removing {str(path)}")
+                line = line[:-1]
+                if line not in processed:
+                    processed.add(line)
+                    path = Path(line)
+                    logging.info(f"  {str(path)}")
+                    try:
+                        if path.is_dir():
+                            path.rmdir()
+                        else:
+                            path.unlink()
+                    except Exception as e:
+                        exceptions.append(e)
+                        logging.exception(f"Error while removing {str(path)}")
         if len(exceptions):
             logging.error(f"{len(exceptions)} errors occurred while removing grid files")
         logging.info("Removing the data file")
@@ -298,8 +246,6 @@ class Engine:
         self.setup_logging()
         if self.action == "new":
             self.run_new()
-        elif self.action == "distribute":
-            self.run_distribute()
         elif self.action == "run":
             self.run_exec()
         elif self.action == "cleanup":
@@ -313,7 +259,7 @@ def grid_run(options=None):
     if options is None:
         options = arg_parser.parse_args()
 
-    if options.action in ("new", "run", "distribute"):
+    if options.action in ("new", "run"):
         if len(options.extra) == 0:
             arg_parser.error(f"usage: grid {options.action} COMMAND or FILE(s)")
     elif options.action == "cleanup":

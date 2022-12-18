@@ -142,16 +142,6 @@ def test_raise_run_subprocess_error(grid_script):
     ])
 
 
-def test_raise_non_existent_distribute(grid_script):
-    """Dummy setup with a single text file"""
-    with pytest.raises(CalledProcessError) as e_info:
-        run_grid({}, grid_script, "distribute", "something")
-    e = e_info.value
-    assert e.returncode == 1
-    assert e.stderr.endswith("Grid file does not exit: '.grid.json'\n")
-    assert e.stdout == ""
-
-
 def test_raise_grid_folder_exists(grid_script):
     """Conflicting folder setup"""
     with pytest.raises(CalledProcessError) as e_info:
@@ -176,7 +166,7 @@ def test_const(grid_script):
     }
 
 
-@test_steps("grid new", "grid run", "grid distribute", "grid cleanup")
+@test_steps("grid new", "grid run", "grid update", "grid cleanup")
 def test_list(grid_script):
     """List expressions as well as cleanup"""
     base = {"file_with_list": "{% a = [1, 2, 'a'] %}", "some_other_file": "abc"}
@@ -207,19 +197,22 @@ def test_list(grid_script):
     payload = {"additional_file": "{% a * 2 %}"}
     setup_folder(payload, root)
     base = {**base, **payload}
-    root, output = run_grid(root, grid_script, "distribute", "additional_file")
+    root, output = run_grid(root, grid_script, "new", "*", "-f")
     assert output == ""
     assert read_folder(root) == {
         **base,
         "grid0/file_with_list": "1",
         "grid0/additional_file": "2",
-        "grid0/.variables": "a = 1",
+        "grid0/.variables": "a = 1\n"
+                            "anonymous_additional_file_l1c3 = 2",
         "grid1/file_with_list": "2",
         "grid1/additional_file": "4",
-        "grid1/.variables": "a = 2",
+        "grid1/.variables": "a = 2\n"
+                            "anonymous_additional_file_l1c3 = 4",
         "grid2/file_with_list": "a",
         "grid2/additional_file": "aa",
-        "grid2/.variables": "a = a",
+        "grid2/.variables": "a = a\n"
+                            "anonymous_additional_file_l1c3 = aa",
     }
     yield
 
@@ -229,7 +222,7 @@ def test_list(grid_script):
     yield
 
 
-@test_steps("grid new", "grid run", "grid distribute", "grid cleanup")
+@test_steps("grid new", "grid run", "grid update", "grid cleanup")
 def test_list_missing(grid_script):
     """List expressions as well as cleanup"""
     base = {"file_with_list": "{% a = [1, 2, 'a'] %}", "some_other_file": "abc"}
@@ -267,29 +260,27 @@ def test_list_missing(grid_script):
     payload = {"additional_file": "{% a * 2 %}"}
     setup_folder(payload, root)
     base = {**base, **payload}
-    with pytest.raises(subprocess.SubprocessError) as e_info:
-        run_grid(root, grid_script, "distribute", "additional_file")
-    e = e_info.value
-    assert e.returncode == 1
-    assert e.stderr.endswith("No such file or directory: \'grid1\'\n")
-    assert e.stdout == ""
+    root, output = run_grid(root, grid_script, "new", "*", "-f")
+    assert output == ""
     assert read_folder(root) == {
         **base,
         "grid0/file_with_list": "1",
-        "grid0/.variables": "a = 1",
         "grid0/additional_file": "2",
+        "grid0/.variables": "a = 1\n"
+                            "anonymous_additional_file_l1c3 = 2",
+        "grid1/file_with_list": "2",
+        "grid1/additional_file": "4",
+        "grid1/.variables": "a = 2\n"
+                            "anonymous_additional_file_l1c3 = 4",
         "grid2/file_with_list": "a",
         "grid2/additional_file": "aa",
-        "grid2/.variables": "a = a",
+        "grid2/.variables": "a = a\n"
+                            "anonymous_additional_file_l1c3 = aa",
     }
     yield
 
-    with pytest.raises(subprocess.SubprocessError) as e_info:
-        run_grid(root, grid_script, "cleanup")
-    e = e_info.value
-    assert e.returncode == 1
-    assert e.stderr.endswith("No such file or directory: \'grid1\'\n")
-    assert e.stdout == ""
+    root, output = run_grid(root, grid_script, "cleanup")
+    assert output == ""
     assert read_folder(root, exclude=(".grid.log",)) == base
     yield
 
@@ -439,6 +430,29 @@ def test_pattern(grid_script):
         "custom1/.variables": "anonymous_file_with_list_l1c3 = 2",
         "custom2/file_with_list": "a",
         "custom2/.variables": "anonymous_file_with_list_l1c3 = a",
+    }
+    yield
+
+    root, output = run_grid(root, grid_script, "cleanup")
+    assert output == ""
+    assert read_folder(root, exclude=(".grid.log",)) == base
+    yield
+
+
+@test_steps("grid new", "grid cleanup")
+def test_pattern_no_folders(grid_script):
+    """Prefix option"""
+    base = {"file_with_list": "{% [1, 2, 'a'] %}"}
+    root, output = run_grid(base, grid_script, "new", "*", "-p", "{name}.{id}")
+    assert output == ""
+    assert read_folder(root) == {
+        **base,
+        "file_with_list.0": "1",
+        ".variables.0": "anonymous_file_with_list_l1c3 = 1",
+        "file_with_list.1": "2",
+        ".variables.1": "anonymous_file_with_list_l1c3 = 2",
+        "file_with_list.2": "a",
+        ".variables.2": "anonymous_file_with_list_l1c3 = a",
     }
     yield
 
