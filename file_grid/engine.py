@@ -75,6 +75,22 @@ class Engine:
         with open(self.state_fn, "w") as f:
             json.dump(state, f, indent=4)
 
+    def save_paths(self, paths):
+        """Saves path list"""
+        if len(paths) > 0:
+            with open(self.list_fn, 'a') as f:
+                for i in paths:
+                    f.write(str(i.absolute()) + "\n")
+
+    def load_paths(self):
+        """Loads path list"""
+        logging.info(f"Loading grid state from '{self.state_fn}'")
+        try:
+            with open(self.list_fn, 'r') as f:
+                return list(i[:-1] for i in f)
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f"Grid file does not exit: {repr(e.filename)}") from e
+
     def match_static(self):
         logging.info("Matching static files")
         result = match_files(self.static_files, allow_empty=True, recursive=self.recursive)
@@ -176,9 +192,7 @@ class Engine:
         # Save state
         self.save_state(grid_state)
         # Save files created
-        with open(self.list_fn, 'a') as f:
-            for i in files_created:
-                f.write(str(i.absolute()) + "\n")
+        self.save_paths(files_created)
 
     def run_exec(self):
         """
@@ -219,21 +233,19 @@ class Engine:
         logging.info("Cleaning up")
         exceptions = []
         processed = set()  # there may be duplicates
-        with open(self.list_fn, 'r') as f:
-            for line in list(f)[::-1]:
-                line = line[:-1]
-                if line not in processed:
-                    processed.add(line)
-                    path = Path(line)
-                    logging.info(f"  {str(path)}")
-                    try:
-                        if path.is_dir():
-                            path.rmdir()
-                        else:
-                            path.unlink()
-                    except Exception as e:
-                        exceptions.append(e)
-                        logging.exception(f"Error while removing {str(path)}")
+        for line in self.load_paths()[::-1]:
+            if line not in processed:
+                processed.add(line)
+                path = Path(line)
+                logging.info(f"  {str(path)}")
+                try:
+                    if path.is_dir():
+                        path.rmdir()
+                    else:
+                        path.unlink()
+                except Exception as e:
+                    exceptions.append(e)
+                    logging.exception(f"Error while removing {str(path)}")
         if len(exceptions):
             logging.error(f"{len(exceptions)} errors occurred while removing grid files")
         logging.info("Removing the data file")
