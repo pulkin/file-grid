@@ -26,8 +26,8 @@ arg_parser.add_argument("--list", help="save list of created files and folders",
 arg_parser.add_argument("--json", help="save json file with information", metavar="FILE", default=".grid.json")
 arg_parser.add_argument("--log", help="save log file", metavar="FILE", default=".grid.log")
 arg_parser.add_argument("--root", help="root folder for scanning/placing grid files", default=".")
-arg_parser.add_argument("action", help="action to perform", choices=["new", "run", "cleanup"])
-arg_parser.add_argument("extra", nargs="*", help="extra action arguments for 'new' and 'run'")
+arg_parser.add_argument("action", help="action to perform", choices=["new", "cleanup"])
+arg_parser.add_argument("extra", nargs="*", help="extra action arguments for 'new'")
 
 
 class Engine:
@@ -217,36 +217,6 @@ class Engine:
         if len(exceptions) > 0:
             raise exceptions[-1]
 
-    def run_exec(self):
-        """
-        Performs the run action.
-
-        Executes a command in all grid folders.
-        """
-        logging.info(f"Executing {' '.join(self.extra)}")
-        current_state = self.load_state()
-        logging.info(f"   grid folders: {len(current_state['grid'])}")
-        exceptions = []
-        for grid_info in current_state["grid"]:
-            cwd = grid_info["location"]
-            try:
-                print(f'{cwd}: {" ".join(self.extra)}')
-                print(subprocess.check_output(self.extra, cwd=cwd, stderr=subprocess.PIPE, text=True))
-
-            except FileNotFoundError as e:
-                print(f"{' '.join(self.extra)}: file not found (working directory {repr(cwd)})")
-                logging.exception(f"{' '.join(self.extra)}: file not found (working directory {repr(cwd)})")
-                exceptions.append(e)
-
-            except subprocess.CalledProcessError as e:
-                print(f"{' '.join(self.extra)}: process error (working directory {repr(cwd)})")
-                print(e.stdout, end="")
-                print(e.stderr, end="")
-                logging.exception(f"{' '.join(self.extra)}: process error (working directory {repr(cwd)})")
-                exceptions.append(e)
-        if len(exceptions) > 0:
-            raise exceptions[-1]
-
     def run_cleanup(self):
         """
         Performs the cleanup action.
@@ -283,8 +253,6 @@ class Engine:
         self.setup_logging()
         if self.action == "new":
             self.run_new()
-        elif self.action == "run":
-            self.run_exec()
         elif self.action == "cleanup":
             self.run_cleanup()
         else:
@@ -296,11 +264,11 @@ def grid_run(options=None):
     if options is None:
         options = arg_parser.parse_args()
 
-    if options.action in ("new", "run"):
+    if options.action == "new":
         if len(options.extra) == 0:
             arg_parser.error(f"usage: grid {options.action} COMMAND or FILE(s)")
     elif options.action == "cleanup":
         if len(options.extra) > 0:
-            arg_parser.error("usage: grid cleanup (no extra arguments)")
+            arg_parser.error(f"usage: grid {options.action} (no extra arguments)")
 
     return Engine.from_argparse(options).run()
