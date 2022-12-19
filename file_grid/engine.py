@@ -19,6 +19,7 @@ arg_parser.add_argument("-r", "--recursive", help="visit sub-folders when matchi
 arg_parser.add_argument("-p", "--pattern", help="naming pattern", metavar="PATTERN", default="grid{id}/{name}")
 arg_parser.add_argument("-m", "--max", help="maximum allowed grid size", metavar="N", default=10_000)
 arg_parser.add_argument("-f", "--force", help="force overwrite", action="store_true")
+arg_parser.add_argument("-d", "--dry", help="dry run", action="store_true")
 arg_parser.add_argument("--list", help="save list of created files and folders", metavar="FILE", default=".grid")
 arg_parser.add_argument("--json", help="save json file with information", metavar="FILE", default=".grid.json")
 arg_parser.add_argument("--log", help="save log file", metavar="FILE", default=".grid.log")
@@ -29,7 +30,7 @@ arg_parser.add_argument("extra", nargs="*", help="extra action arguments for 'ne
 
 class Engine:
     def __init__(self, action, extra, static_files, root, recursive, naming_pattern, max_size, list_fn, state_fn,
-                 log_fn, force_overwrite):
+                 log_fn, force_overwrite, dry_run):
         self.action = action
         self.extra = extra
         self.static_files = static_files
@@ -41,6 +42,7 @@ class Engine:
         self.state_fn = state_fn
         self.log_fn = log_fn
         self.force_overwrite = force_overwrite
+        self.dry_run = dry_run
 
     @classmethod
     def from_argparse(cls, options):
@@ -56,6 +58,7 @@ class Engine:
             state_fn=options.json,
             log_fn=options.log,
             force_overwrite=options.force,
+            dry_run=options.dry,
         )
 
     def setup_logging(self):
@@ -187,12 +190,13 @@ class Engine:
             grid_state["grid"].append({"stack": stack, "location": scratch})
             logging.info(f"  composing {scratch}")
             files_created.extend(write_grid(self.naming_pattern.format(id=index, name="{name}"), stack, files_static,
-                                            files_grid, self.root, self.force_overwrite))
+                                            files_grid, self.root, self.force_overwrite, self.dry_run))
 
-        # Save state
-        self.save_state(grid_state)
-        # Save files created
-        self.save_paths(files_created)
+        if not self.dry_run:
+            # Save state
+            self.save_state(grid_state)
+            # Save files created
+            self.save_paths(files_created)
 
     def run_exec(self):
         """
@@ -238,19 +242,21 @@ class Engine:
                 processed.add(line)
                 path = Path(line)
                 logging.info(f"  {str(path)}")
-                try:
-                    if path.is_dir():
-                        path.rmdir()
-                    else:
-                        path.unlink()
-                except Exception as e:
-                    exceptions.append(e)
-                    logging.exception(f"Error while removing {str(path)}")
+                if not self.dry_run:
+                    try:
+                        if path.is_dir():
+                            path.rmdir()
+                        else:
+                            path.unlink()
+                    except Exception as e:
+                        exceptions.append(e)
+                        logging.exception(f"Error while removing {str(path)}")
         if len(exceptions):
             logging.error(f"{len(exceptions)} errors occurred while removing grid files")
         logging.info("Removing the data file")
-        Path(self.state_fn).unlink()
-        Path(self.list_fn).unlink()
+        if not self.dry_run:
+            Path(self.state_fn).unlink()
+            Path(self.list_fn).unlink()
         if len(exceptions):
             raise exceptions[-1]
 

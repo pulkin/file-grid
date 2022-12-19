@@ -166,7 +166,7 @@ def test_const(grid_script):
     }
 
 
-@test_steps("grid new", "grid run", "grid update", "grid cleanup")
+@test_steps("new", "run", "update", "cleanup")
 def test_list(grid_script):
     """List expressions as well as cleanup"""
     base = {"file_with_list": "{% a = [1, 2, 'a'] %}", "some_other_file": "abc"}
@@ -222,7 +222,7 @@ def test_list(grid_script):
     yield
 
 
-@test_steps("grid new", "grid run", "grid update", "grid cleanup")
+@test_steps("new", "run", "update", "cleanup")
 def test_list_missing(grid_script):
     """List expressions as well as cleanup"""
     base = {"file_with_list": "{% a = [1, 2, 'a'] %}", "some_other_file": "abc"}
@@ -416,7 +416,7 @@ def test_static_files(grid_script):
     }
 
 
-@test_steps("grid new", "grid cleanup")
+@test_steps("new", "cleanup")
 def test_pattern(grid_script):
     """Prefix option"""
     base = {"file_with_list": "{% [1, 2, 'a'] %}"}
@@ -439,7 +439,7 @@ def test_pattern(grid_script):
     yield
 
 
-@test_steps("grid new", "grid cleanup")
+@test_steps("new", "cleanup")
 def test_pattern_no_folders(grid_script):
     """Prefix option"""
     base = {"file_with_list": "{% [1, 2, 'a'] %}"}
@@ -521,3 +521,21 @@ def test_suppress(grid_script):
         "grid2/file_with_suppressed": "nothing  here",
         "grid2/.variables": "a = 3",
     }
+
+
+def test_dry_new(grid_script):
+    """Test dry run"""
+    base = {"file_with_list": "{% a = [1, 2, 'a'] %}"}
+    root, output = run_grid(base, grid_script, "new", "*", "--dry")
+    assert output == ""
+    assert read_folder(root, exclude=(".grid.log",)) == base
+
+
+def test_dry_cleanup(grid_script):
+    """Test dry run"""
+    base = {"file_with_list": "{% a = [1, 2, 'a'] %}"}
+    root, _ = run_grid(base, grid_script, "new", "*")
+    ref_list = read_folder(root)
+    root, output = run_grid(root, grid_script, "cleanup", "--dry")
+    assert output == ""
+    assert read_folder(root) == ref_list

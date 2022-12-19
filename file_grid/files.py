@@ -51,7 +51,7 @@ def _maybe_template(candidate):
 match_template_files = partial(match_files, apply=_maybe_template)
 
 
-def write_grid(name_pattern, stack, files_static, files_grid, root, force_overwrite=False):
+def write_grid(name_pattern, stack, files_static, files_grid, root, force_overwrite=False, dry_run=False):
     """Writes grid folder contents"""
     result = []
     root = Path(root)
@@ -72,8 +72,9 @@ def write_grid(name_pattern, stack, files_static, files_grid, root, force_overwr
         if dst.exists() and not force_overwrite:
             raise FileExistsError(f"file '{dst}' already exists")
         result.extend(_missing_dirs(dst))
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dst)
+        if not dry_run:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
 
     for f in files_grid:
         src = f.name
@@ -81,12 +82,13 @@ def write_grid(name_pattern, stack, files_static, files_grid, root, force_overwr
         if dst.exists() and not force_overwrite:
             raise FileExistsError(f"file or folder '{dst}' already exists")
         result.extend(_missing_dirs(dst))
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        with open(dst, "w") as ff:
-            f.write(stack, ff)
-        try:
-            shutil.copystat(src, dst)
-        except FileNotFoundError:
-            pass  # virtual file
+        if not dry_run:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            with open(dst, "w") as ff:
+                f.write(stack, ff)
+            try:
+                shutil.copystat(src, dst)
+            except FileNotFoundError:
+                pass  # virtual file
 
     return result
