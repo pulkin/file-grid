@@ -1,4 +1,5 @@
 [![build](https://github.com/pulkin/file-grid/actions/workflows/test.yml/badge.svg)](https://github.com/pulkin/file-grid/actions)
+[![pypi](https://img.shields.io/pypi/v/file-grid)](https://pypi.org/project/file-grid/)
 
 # ![icon](resources/icon-full.svg)
 
