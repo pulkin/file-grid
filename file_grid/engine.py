@@ -1,3 +1,4 @@
+import sys
 import argparse
 import json
 import logging
@@ -20,6 +21,7 @@ arg_parser.add_argument("-p", "--pattern", help="naming pattern", metavar="PATTE
 arg_parser.add_argument("-m", "--max", help="maximum allowed grid size", metavar="N", default=10_000)
 arg_parser.add_argument("-f", "--force", help="force overwrite", action="store_true")
 arg_parser.add_argument("-d", "--dry", help="dry run", action="store_true")
+arg_parser.add_argument("-e", "--exec", nargs="+", help="execute per grid")
 arg_parser.add_argument("--list", help="save list of created files and folders", metavar="FILE", default=".grid")
 arg_parser.add_argument("--json", help="save json file with information", metavar="FILE", default=".grid.json")
 arg_parser.add_argument("--log", help="save log file", metavar="FILE", default=".grid.log")
@@ -30,7 +32,7 @@ arg_parser.add_argument("extra", nargs="*", help="extra action arguments for 'ne
 
 class Engine:
     def __init__(self, action, extra, static_files, root, recursive, naming_pattern, max_size, list_fn, state_fn,
-                 log_fn, force_overwrite, dry_run):
+                 log_fn, force_overwrite, dry_run, do_exec):
         self.action = action
         self.extra = extra
         self.static_files = static_files
@@ -43,6 +45,7 @@ class Engine:
         self.log_fn = log_fn
         self.force_overwrite = force_overwrite
         self.dry_run = dry_run
+        self.do_exec = do_exec
 
     @classmethod
     def from_argparse(cls, options):
@@ -59,6 +62,7 @@ class Engine:
             log_fn=options.log,
             force_overwrite=options.force,
             dry_run=options.dry,
+            do_exec=options.exec,
         )
 
     def setup_logging(self):
@@ -181,6 +185,7 @@ class Engine:
         files_grid.append(variable_list_template(sorted(statements.keys())))
         # Iterate over possible combinations and write a grid
         files_created = []
+        exceptions = []
         for index, stack in enumerate(combinations(statements_core)):
             scratch = str(Path(self.naming_pattern.format(id=index, name="")))
             stack["__grid_id__"] = index
@@ -191,12 +196,26 @@ class Engine:
             logging.info(f"  composing {scratch}")
             files_created.extend(write_grid(self.naming_pattern.format(id=index, name="{name}"), stack, files_static,
                                             files_grid, self.root, self.force_overwrite, self.dry_run))
+            if self.do_exec is not None:
+                commands = tuple(i.format(id=index) for i in self.do_exec)
+                commands_joined = ' '.join(commands)
+                logging.info(f"  running {commands_joined}")
+                try:
+                    print(f"{index} > {commands_joined}")
+                    subprocess.check_call(commands_joined, cwd=self.root, stdout=sys.stdout, stderr=sys.stderr, shell=True)
+
+                except subprocess.CalledProcessError as e:
+                    logging.exception(f"{commands_joined}: process error")
+                    exceptions.append(e)
 
         if not self.dry_run:
             # Save state
             self.save_state(grid_state)
             # Save files created
             self.save_paths(files_created)
+
+        if len(exceptions) > 0:
+            raise exceptions[-1]
 
     def run_exec(self):
         """
