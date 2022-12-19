@@ -82,7 +82,7 @@ eval block `{% range(10) %}` like this:
 run-some-program --some-arg={% range(10) %}
 ```
 
-Afterwards you invoke `grid new` which takes care of interpreting
+Afterwards you invoke `grid new *` which takes care of interpreting
 your template and creating copies of the file `run.sh` in 10 separate
 folders named `grid0`, `grid1`, etc.
 
@@ -114,9 +114,9 @@ For example, the contents of `root/grid4/run.sh` is
 run-some-program --some-arg=4
 ```
 
-Now, executing each copy of `run.sh` is as simple as `grid run ./run.sh`
-which runs 10 copies one after another within their corresponding grid
-folders.
+To execute each copy of `run.sh` simply add `--exec` argument as
+`grid new * --exec grid{id}/run.sh`
+which runs 10 copies of the file one after another.
 
 Template language
 -----------------
@@ -158,27 +158,27 @@ blocks belong to the same scope and all named blocks are shared).
 
 ### Formatting
 
-TBD: not implemented yet.
-Currently, `str(...)` is used when writing expanded expressions.
+Supported through the usual `{% [1, 2, 3]:.3f %}` postfix notation.
+The supress `supress` postfix will format into empty string:
+`{% block = [1, 2, 3]:supress %}`.
 
 ### Useful implementation details
 
 - All python types are supported: integers, floats, strings, objects, etc.
   For example, this is a valid eval block: `{% ['a', 2, 3.] %}`.
 - Anonymous eval blocks such as the above are assigned an
-  `anonymous_{file}_{line}_{char}` name.
+  `anonymous_{file}_l{line}c{char_in_line}` name.
 - Currently, only `range` and `linspace` are available as builtins.
   TBD: will be fixed.
 - To see variable values after the grid was created simply look into
-  `.variables` file of the grid folder.
+  the corresponding `.variables` file.
 - A two-phase scheme is used when evaluating blocks.
   At the first stage, blocks without dependencies are identified and
   computed.
   At the second stage, all dependent templates are computed.
 - Under the hood, blocks are compiled into python code objects in `eval`
   mode and name dependencies are determined via `code.co_names`.
-- `__grid_folder_name__` with the grid folder name and
-  `__grid_id__` with grid sequence id are injected into eval scope
+- `__grid_id__` with grid sequence id is injected into eval scope
   at the second stage.
 - The grid size (shape) is defined by the (cartesian) product of all
   values of independent eval blocks.

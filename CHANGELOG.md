@@ -5,14 +5,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [Unreleased]
+## [0.0.3]
 
 ### Added
 - more verbose `grid run` errors
-
-### Fixed
+- `--pattern` argument replaces `--name` for a full path towards file replica
+- `--force`, `--dry`, `--exec` arguments
 
 ### Removed
+- `grid run` (replace by `grid new PATTERN(s) --exec COMMAND`)
+  and `grid distribute` (replaced by `--force` arg)
 
 
 ## [0.0.2]
