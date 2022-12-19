@@ -75,7 +75,6 @@ def test_raise_run_subprocess_error(grid_script):
         run_grid(base, grid_script, "new", "*", "--exec", "something-non-existent")
     e = e_info.value
     assert e.returncode == 1
-    assert e.stderr.startswith("/bin/sh: line 1: something-non-existent: command not found\n" * 3)
     assert e.stderr.endswith("Command 'something-non-existent' returned non-zero exit status 127.\n")
     assert e.stdout == "\n".join([
         "0 > something-non-existent",
