@@ -266,7 +266,7 @@ def grid_run(options=None):
 
     if options.action == "new":
         if len(options.extra) == 0:
-            arg_parser.error(f"usage: grid {options.action} COMMAND or FILE(s)")
+            arg_parser.error(f"usage: grid {options.action} FILE(s)")
     elif options.action == "cleanup":
         if len(options.extra) > 0:
             arg_parser.error(f"usage: grid {options.action} (no extra arguments)")
