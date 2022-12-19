@@ -441,7 +441,7 @@ def test_formatting(grid_script):
 
 def test_suppress(grid_script):
     """Formatting"""
-    base = {"file_with_suppressed": "nothing {% a = [1, 2, 3]:suppress %} here"}
+    base = {"file_with_suppressed": "nothing {% a = [1, 2, 3]:supress %} here"}
     root, output = run_grid(base, grid_script, "new", "*")
     assert output == ""
     assert read_folder(root) == {
