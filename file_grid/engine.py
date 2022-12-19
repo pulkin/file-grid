@@ -1,6 +1,5 @@
 import sys
 import argparse
-import json
 import logging
 import subprocess
 from pathlib import Path
@@ -23,7 +22,6 @@ arg_parser.add_argument("-f", "--force", help="force overwrite", action="store_t
 arg_parser.add_argument("-d", "--dry", help="dry run", action="store_true")
 arg_parser.add_argument("-e", "--exec", nargs="+", help="execute per grid")
 arg_parser.add_argument("--list", help="save list of created files and folders", metavar="FILE", default=".grid")
-arg_parser.add_argument("--json", help="save json file with information", metavar="FILE", default=".grid.json")
 arg_parser.add_argument("--log", help="save log file", metavar="FILE", default=".grid.log")
 arg_parser.add_argument("--root", help="root folder for scanning/placing grid files", default=".")
 arg_parser.add_argument("action", help="action to perform", choices=["new", "cleanup"])
@@ -31,7 +29,7 @@ arg_parser.add_argument("extra", nargs="*", help="extra action arguments for 'ne
 
 
 class Engine:
-    def __init__(self, action, extra, static_files, root, recursive, naming_pattern, max_size, list_fn, state_fn,
+    def __init__(self, action, extra, static_files, root, recursive, naming_pattern, max_size, list_fn,
                  log_fn, force_overwrite, dry_run, do_exec):
         self.action = action
         self.extra = extra
@@ -41,7 +39,6 @@ class Engine:
         self.naming_pattern = naming_pattern
         self.max_size = max_size
         self.list_fn = list_fn
-        self.state_fn = state_fn
         self.log_fn = log_fn
         self.force_overwrite = force_overwrite
         self.dry_run = dry_run
@@ -58,7 +55,6 @@ class Engine:
             naming_pattern=options.pattern,
             max_size=options.max,
             list_fn=options.list,
-            state_fn=options.json,
             log_fn=options.log,
             force_overwrite=options.force,
             dry_run=options.dry,
@@ -67,20 +63,6 @@ class Engine:
 
     def setup_logging(self):
         logging.basicConfig(filename=self.log_fn, filemode="w", level=logging.INFO)
-
-    def load_state(self):
-        """Reads the grid state"""
-        logging.info(f"Loading grid state from '{self.state_fn}'")
-        try:
-            with open(self.state_fn, "r") as f:
-                return json.load(f)
-        except FileNotFoundError as e:
-            raise FileNotFoundError(f"Grid file does not exit: {repr(e.filename)}") from e
-
-    def save_state(self, state):
-        """Saves the grid state"""
-        with open(self.state_fn, "w") as f:
-            json.dump(state, f, indent=4)
 
     def save_paths(self, paths):
         """Saves path list"""
@@ -91,7 +73,7 @@ class Engine:
 
     def load_paths(self):
         """Loads path list"""
-        logging.info(f"Loading grid state from '{self.state_fn}'")
+        logging.info(f"Loading grid state from '{self.list_fn}'")
         try:
             with open(self.list_fn, 'r') as f:
                 return list(i[:-1] for i in f)
@@ -209,8 +191,6 @@ class Engine:
                     exceptions.append(e)
 
         if not self.dry_run:
-            # Save state
-            self.save_state(grid_state)
             # Save files created
             self.save_paths(files_created)
 
@@ -244,7 +224,6 @@ class Engine:
             logging.error(f"{len(exceptions)} errors occurred while removing grid files")
         logging.info("Removing the data file")
         if not self.dry_run:
-            Path(self.state_fn).unlink()
             Path(self.list_fn).unlink()
         if len(exceptions):
             raise exceptions[-1]
