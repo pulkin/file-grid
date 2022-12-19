@@ -183,8 +183,9 @@ class Engine:
                 commands_joined = ' '.join(commands)
                 logging.info(f"  running {commands_joined}")
                 try:
-                    print(f"{index} > {commands_joined}")
-                    subprocess.check_call(commands_joined, cwd=self.root, stdout=sys.stdout, stderr=sys.stderr, shell=True)
+                    print(f"{index} > {commands_joined}", flush=True)
+                    subprocess.check_call(commands_joined, cwd=self.root, stdout=sys.stdout, stderr=sys.stderr,
+                                          shell=True)
 
                 except subprocess.CalledProcessError as e:
                     logging.exception(f"{commands_joined}: process error")
