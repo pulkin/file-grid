@@ -8,7 +8,7 @@ from operator import mul
 from warnings import warn
 
 from .algorithm import resolve_dependency_tree, eval_all
-from .tools import combinations
+from .tools import named_product
 from .template import EvalBlock, variable_list_template
 from .grid_builtins import builtins
 from .files import match_files, match_template_files, write_grid
@@ -164,7 +164,7 @@ class Engine:
         # Figure out order
         tree = {name: expr.required for name, expr in statements_dependent.items()}
         tree_roots = {name: set() for name in reserved_names | set(statements_core)}
-        tree.update(tree_roots)  # root nodes
+        tree.update(tree_roots)
         ordered_statements = [
             statements_dependent[name]
             for name in resolve_dependency_tree(tree)
@@ -176,7 +176,7 @@ class Engine:
         # Iterate over possible combinations and write a grid
         files_created = []
         exceptions = []
-        for index, stack in enumerate(combinations(statements_core)):
+        for index, stack in enumerate(named_product(statements_core)):
             scratch = str(Path(self.naming_pattern.format(id=index, name="")))
             stack["__grid_id__"] = index
 
