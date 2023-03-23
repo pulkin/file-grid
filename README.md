@@ -11,13 +11,14 @@ What it is
 `grid` is a command-line tool to create *many* copies of *similar* files
 using a **template** language.
 
-`grid` scans current folder for template files with evaluate blocks and
-expands them.
-`grid` creates copies of template files and substitutes template blocks
-(eval blocks) with their corresponding computed values.
-As a result, text files with eval blocks such as
-`something = {% range(3, 8) %}` replicate into 5 separate files containing
-`something = 3`, `something = 4`, etc.
+`grid` searches for text files with specially-formatted expressions
+and explodes them.
+`grid` creates copies of the files where expressions are replaced
+with their corresponding evaluations.
+For example, a text file with the following expression
+`Hi my name is {% ['Alice', 'Bob', 'Carol' %}`
+will explode into 3 separate files `Hi my name is Alice`,
+`Hi my name is Bob`, `Hi my name is Carol`.
 
 Install
 -------
@@ -56,39 +57,40 @@ or simply
 grid --help
 ```
 
-if your `PATH` includes python `bin` folder.
+assuming your `PATH` includes python `bin` folder.
 
 Example
 -------
 
-Suppose you have a single file `run.sh` in the folder `root`:
+Suppose you have a single text file `run.sh` in the `root` folder:
 
 ```
 root
 |- run.sh
 ```
 
-The contents of `run.sh` includes the following script
+`run.sh` includes the following text
 
 ```
 run-some-program --some-arg=arg-value
 ```
 
-You would like to make copies of this file where `--some-arg`
-takes values from 0 to 9.
-You turn `run.sh` into a template where `arg-value` is replaced with
-eval block `{% range(10) %}` like this:
+You would like to make copies of `run.sh` where `--some-arg`
+takes integer values from 0 to 9.
+You introduce a python expression within brackets `{%` and `%}`
+to define a "grid" as follows
 
 ```
 run-some-program --some-arg={% range(10) %}
 ```
 
-Afterwards you invoke `grid new *` which takes care of interpreting
-your template and creating copies of the file `run.sh` in 10 separate
-folders named `grid0`, `grid1`, etc.
+Afterwards you invoke `grid new *` in the folder `root` which
+takes care of interpreting the template and creating
+10 different files `run.sh` in 10 different folders named
+`grid0`, `grid1`, etc.
 
 ```
-grid new
+grid new *
 ```
 
 ```
@@ -105,74 +107,78 @@ root
 ...
 ```
 
-While the file `run.sh` in the root folder remains untouched, each copy
-of the root folder `grid0` to `grid9` contains the file `run.sh` where
-the `{% ... %}` eval block is substituted with one of its values `range(10)`:
-i.e. `0`, `1`, `2`, etc.
-For example, the contents of `root/grid4/run.sh` is
+For example, the file `root/grid4/run.sh` includes the following
+expanded text
 
 ```
 run-some-program --some-arg=4
 ```
 
 To execute each copy of `run.sh` simply add `--exec` argument as
+below
+
 `grid new * --exec grid{id}/run.sh`
-which runs 10 copies of the file one after another.
+
+It will run each copy of the file one after another.
 
 Template language
 -----------------
 
-By default, `grid` scans for all files and attempts to locate brackets
-`{% ... %}`.
-The expression inside has to be a valid python `compile(..., 'eval')`
+`grid` attempts to locate bracketed expressions `{% ... %}`.
+Each expression has to be a valid python `compile(..., 'eval')`
 statement.
 
-### Grid: multiple brackets
+### Multiple expressions
 
-Consider the following file.
+Consider the following file
 
 ```
 run-some-program --some-arg={% range(10) %} --another-arg={% range(3) %}
 ```
 
-It will be expanded into 30 copies with all possible combinations of the
-two arguments / eval block values.
+It will be expanded into 30 copies (`10x3` cartesian product or a `10x3`
+grid) with all possible combinations of the two arguments `range(10)`
+and `range(3)`.
 
 ### Dependent statements
 
-It is possible to re-use computed eval blocks as a part of an expression
-in another eval block.
-For this, named blocks are available as `{% name = expression %}`.
-For example,
+It is possible to re-use computed values in *dependent* expressions.
+Example:
 
 ```
 run-some-program --some-arg={% a = range(10) %} --another-arg={% a + 3 %}
 ```
 
-In this case, 10 copies are created where the value of the second block
-(`--another-arg`) is always the value substituted in the first block plus 3.
+In this case 10 copies are created:
+
+```
+run-some-program --some-arg=0 --another-arg=3
+run-some-program --some-arg=1 --another-arg=4
+run-some-program --some-arg=2 --another-arg=5
+...
+run-some-program --some-arg=9 --another-arg=12
+```
 
 ### Multiple files
 
-Multiple files are treated as if it is a single file (i.e. all dependent
-blocks belong to the same scope and all named blocks are shared).
+All expressions share the same scope across all files.
 
 ### Formatting
 
-Supported through the usual `{% [1, 2, 3]:.3f %}` postfix notation.
-The supress `supress` postfix will format into empty string:
-`{% block = [1, 2, 3]:supress %}`.
+Standard python formatting is supported through the
+`{% [1, 2, 3]:.3f %}` postfix notation.
+An additional `suppress` postfix will always format
+into empty string, example:
+`{% block = [1, 2, 3]:suppress %}`.
 
-### Useful implementation details
+### Implementation details
 
 - All python types are supported: integers, floats, strings, objects, etc.
   For example, this is a valid eval block: `{% ['a', 2, 3.] %}`.
 - Anonymous eval blocks such as the above are assigned an
   `anonymous_{file}_l{line}c{char_in_line}` name.
 - Currently, only `range` and `linspace` are available as builtins.
-  TBD: will be fixed.
-- To see variable values after the grid was created simply look into
-  the corresponding `.variables` file.
+- An implicit `.variables` file includes all expressions computed.
 - A two-phase scheme is used when evaluating blocks.
   At the first stage, blocks without dependencies are identified and
   computed.
@@ -192,7 +198,7 @@ The supress `supress` postfix will format into empty string:
   'b', 'c' while `{% a = ['abc'] %}` will produce a single value 'abc'.
 - For the sake of simplicity, the closing bracket `%}` has the highest
   priority when parsing.
-  In the following template `{% "%}" %}` the eval block part is `{% "%}`.
+  In the following template `{% "%}" %}` the expression part is `{% "%}`.
   To make a valid expression, escaping is necessary `{% "\%}" %}` resulting
   in `"%}"` as its computed value.
   Both `"{%"` inside the template block or `"%}"` outside of it are treated

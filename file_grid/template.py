@@ -34,7 +34,7 @@ class EvalBlock:
         return func()
 
     def format_value(self, val):
-        if self.fmt == "supress":
+        if self.fmt == "suppress":
             return ""
         elif self.fmt is None:
             return str(val)
