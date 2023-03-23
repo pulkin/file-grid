@@ -1,31 +1,52 @@
-def eval_sort(statements: dict, names: set):
-    """Figures out the order in which statements should be evaluated"""
-    names = set(names)
-    dependencies = {k: v.required for k, v in statements.items()}
+from typing import Hashable
+
+
+def resolve_dependency_tree(tree: dict[Hashable, set[Hashable]]) -> list[Hashable]:
+    """
+    Resolves the dependency tree and figures out the order
+    in which statements are evaluated.
+
+    Parameters
+    ----------
+    tree
+        Dependency tree: dict keys depend on a set of
+        other keys.
+
+    Returns
+    -------
+    A list of statement names to evaluate.
+    """
+    tree = {k: set(v) for k, v in tree.items()}  # free-to-change copy
+    visited = set()
     result = []
-    delta = set(dependencies).intersection(names)
-    if len(delta) != 0:
-        raise ValueError(f"names and statements overlap: {', '.join(delta)}")
 
     while True:
-        transaction = []
-        for name, depends_on in dependencies.items():
-            if len(depends_on - names) == 0:
-                transaction.append(name)
-                names.add(name)
-                result.append(statements[name])
-        if len(transaction) == 0:
-            if len(dependencies) > 0:
-                info = []
-                for k, v in dependencies.items():
-                    info.append(f"{statements[k]}: missing {', '.join(map(repr, set(v) - names))}")
-                info = "\n".join(info)
-                raise ValueError(
-                    f"{len(dependencies)} expressions cannot be evaluated:\n{info}")
+        # sweep dependencies
+        for name, depends_on in tree.items():
+            depends_on.difference_update(visited)
+
+        # remove empty dependencies
+        transaction = tuple(
+            name
+            for name, depends_on in tree.items()
+            if len(depends_on) == 0
+        )
+        for name in transaction:
+            del tree[name]
+
+        # add to result
+        result.extend(transaction)
+        visited.update(transaction)
+
+        if len(tree) == 0:
             return result
-        else:
-            for i in transaction:
-                del dependencies[i]
+
+        if len(transaction) == 0:
+            info = []
+            for name, depends_on in tree.items():
+                info.append(f"{name}: missing {depends_on}")
+            info = "\n".join(info)
+            raise ValueError(f"{len(tree)} nodes are not resolved:\n{info}")
 
 
 def eval_all(statements: list, names: dict):

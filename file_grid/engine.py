@@ -7,7 +7,7 @@ from functools import reduce
 from operator import mul
 from warnings import warn
 
-from .algorithm import eval_sort, eval_all
+from .algorithm import resolve_dependency_tree, eval_all
 from .tools import combinations
 from .template import EvalBlock, variable_list_template
 from .grid_builtins import builtins
@@ -162,7 +162,15 @@ class Engine:
             warn(f"No fixed groups found")
 
         # Figure out order
-        ordered_statements = eval_sort(statements_dependent, reserved_names | set(statements_core))
+        tree = {name: expr.required for name, expr in statements_dependent.items()}
+        tree_roots = {name: set() for name in reserved_names | set(statements_core)}
+        tree.update(tree_roots)  # root nodes
+        ordered_statements = [
+            statements_dependent[name]
+            for name in resolve_dependency_tree(tree)
+            if name not in tree_roots
+        ]
+
         # Add variables template file
         files_grid.append(variable_list_template(sorted(statements.keys())))
         # Iterate over possible combinations and write a grid

@@ -301,9 +301,9 @@ def test_loop_dependency(grid_script):
         run_grid(base, grid_script, "new", "*")
     e = e_info.value
     assert e.returncode == 1
-    assert e.stderr.endswith("2 expressions cannot be evaluated:\n"
-                             "a: missing \'b\'\n"
-                             "b: missing \'a\'\n")
+    assert e.stderr.endswith("2 nodes are not resolved:\n"
+                             "a: missing {\'b\'}\n"
+                             "b: missing {\'a\'}\n")
     assert e.stdout == ""
 
 
