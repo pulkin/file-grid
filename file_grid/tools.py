@@ -22,3 +22,27 @@ def named_product(dict_of_iterables: dict[Iterable]) -> dict:
     keys = dict_of_iterables.keys()
     for i in product(*dict_of_iterables.values()):
         yield dict(zip(keys, i))
+
+
+def ext_format(what, fmt: str) -> str:
+    """
+    Turns objects into strings.
+
+    Parameters
+    ----------
+    what
+        An object to format.
+    fmt
+        The format to use.
+
+    Returns
+    -------
+    The resulting string representation
+    of an object.
+    """
+    if fmt == "suppress":
+        return ""
+    elif fmt is None:
+        return str(what)
+    else:
+        return f"{what:{fmt}}"

@@ -9,7 +9,7 @@ from warnings import warn
 
 from .algorithm import resolve_dependency_tree, eval_all
 from .tools import named_product
-from .template import EvalBlock, variable_list_template
+from .template import NamedExpression, variable_list_template
 from .grid_builtins import builtins
 from .files import match_files, match_template_files, write_grid
 
@@ -105,20 +105,20 @@ class Engine:
         statements = {}
         for grid_file in files_grid:
             for chunk in grid_file.chunks:
-                if isinstance(chunk, EvalBlock):
+                if isinstance(chunk, NamedExpression):
                     if chunk.name in statements:
                         raise ValueError(f"duplicate statement {chunk} (also {statements[chunk.name]}")
                     else:
                         statements[chunk.name] = chunk
         return statements
 
-    def group_statements(self, statements):
+    def group_statements(self, statements, builtins=builtins):
         statements_core = {}
         statements_dependent = {}
 
         for name, statement in statements.items():
             logging.info(repr(statement))
-            if len(statement.names_missing(builtins)) == 0:
+            if len(statement.get_missing_names(set(builtins))) == 0:
                 logging.info("  core, evaluating ...")
                 result = statement.eval(builtins)
                 if "__len__" not in dir(result):
@@ -127,7 +127,7 @@ class Engine:
                 statements_core[name] = result
 
             else:
-                logging.info(f"  depends on: {', '.join(map(repr, statement.required))}")
+                logging.info(f"  depends on: {', '.join(map(repr, statement.required_names))}")
                 statements_dependent[name] = statement
         total = reduce(mul, map(len, statements_core.values())) if len(statements_core) else 1
         logging.info(f"Total: {len(statements_core)} core statement(s) ({total} combination(s)), "
@@ -162,7 +162,7 @@ class Engine:
             warn(f"No fixed groups found")
 
         # Figure out order
-        tree = {name: expr.required for name, expr in statements_dependent.items()}
+        tree = {name: expr.required_names for name, expr in statements_dependent.items()}
         tree_roots = {name: set() for name in reserved_names | set(statements_core)}
         tree.update(tree_roots)
         ordered_statements = [
