@@ -1,4 +1,5 @@
 from types import FunctionType, CodeType
+from collections import namedtuple
 
 from .parsing import split_assignment, iter_template_blocks
 from .tools import ext_format
@@ -75,72 +76,34 @@ class Expression:
         func = FunctionType(self.code, names)
         return func()
 
-    def __repr__(self):
-        return f"{self.__class__.__name__}('{self}')"
+
+named_expression = namedtuple("named_expression", ("name", "expression", "format"))
 
 
-class NamedExpression(Expression):
-    def __init__(self, code: [CodeType, "Expression"], name: str, fmt: str):
-        """
-        A python expression with a name and text formatting.
+def parse_named_expression(text: str, defined_file: str = "unknown", defined_line: str = "u",
+                           defined_char: str = "u") -> named_expression:
+    """
+    Parses text to provide expression, its name and format.
 
-        Parameters
-        ----------
-        code
-            Expression code.
-        name
-            Expression name.
-        fmt
-            Expression formatting.
-        """
-        super().__init__(code)
-        self.name = name
-        self.fmt = fmt
+    Parameters
+    ----------
+    text
+        Expression text `[name =] expression [:format]`.
+    defined_file
+        A file name where the expression was defined.
+    defined_line
+    defined_char
+        Line and char numbers.
 
-    @classmethod
-    def from_string(cls, text: str, defined_file: str = "unknown", defined_line: str = "u",
-                    defined_char: str = "u") -> "NamedExpression":
-        """
-        Assembles an expression from the provided text.
-
-        Parameters
-        ----------
-        text
-            Expression text `[name =] expression [:format]`.
-        defined_file
-            A file name where the expression was defined.
-        defined_line
-        defined_char
-            Line and char numbers.
-
-        Returns
-        -------
-        A compiled expression.
-        """
-        name, fmt, text = split_assignment(text)
-        if name is None:
-            defined_file = ''.join(i if i.isalnum() else "_" for i in defined_file)
-            name = f"anonymous_{defined_file}_l{defined_line}c{defined_char}"
-        return cls(Expression.from_string(text), name, fmt)
-
-    def format_value(self, val) -> str:
-        """
-        Formats an input value according
-        to this expression format.
-
-        Parameters
-        ----------
-        val
-            The value to format.
-
-        Returns
-        -------
-        The resulting string representation.
-        """
-        return ext_format(val, self.fmt)
-
-    def __str__(self):
-        return self.name
+    Returns
+    -------
+    A parsed expression.
+    """
+    name, fmt, text = split_assignment(text)
+    if name is None:
+        defined_file = ''.join(i if i.isalnum() else "_" for i in defined_file)
+        name = f"anonymous_{defined_file}_l{defined_line}c{defined_char}"
+    return named_expression(name, Expression.from_string(text), fmt)
 
 
 class Template:
@@ -157,7 +120,7 @@ class Template:
             chunks.append(i)  # regular text block
             try:
                 pos, i = next(itr)  # eval block
-                chunks.append(NamedExpression.from_string(
+                chunks.append(parse_named_expression(
                     i,
                     defined_file=name,
                     defined_line=text[:pos].count("\n") + 1,
@@ -175,8 +138,8 @@ class Template:
         for chunk in self.chunks:
             if isinstance(chunk, str):
                 f.write(chunk)
-            elif isinstance(chunk, NamedExpression):
-                f.write(chunk.format_value(stack[chunk.name]))
+            elif isinstance(chunk, named_expression):
+                f.write(ext_format(stack[chunk.name], chunk.format))
             else:
                 raise NotImplementedError(f"unknown {chunk=}")
 

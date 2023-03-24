@@ -54,7 +54,7 @@ def eval_all(statements: list, names: dict):
     result = []
     names = names.copy()
     for statement in statements:
-        v = statement.eval(names)
+        v = statement.expression.eval(names)
         names[statement.name] = v
         result.append(v)
     return result
